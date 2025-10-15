@@ -114,7 +114,7 @@ def main():
 
     if configs.load_model_path != "None":
         saved_weights = torch.load(
-            configs.load_model_path, map_location=torch.device(rank)
+                configs.load_model_path, map_location=torch.device(local_rank), weights_only=True
         )
 
         if configs.coconut and not any(
@@ -167,7 +167,7 @@ def main():
         print(model.load_state_dict(saved_weights, strict=False))
 
     print(f"Running FSDP on rank = {rank}, world size = {world_size}")
-    model = model.to(rank)
+    model = model.to(local_rank)
 
     llama_auto_wrap_policy = functools.partial(
         transformer_auto_wrap_policy,
@@ -182,11 +182,11 @@ def main():
 
     # if only eval, use ddp (to avoid bugs in fsdp)
     if configs.only_eval:
-        parallel_model = DDP(model, device_ids=[rank])
+        parallel_model = DDP(model, device_ids=[local_rank])
 
     else:
         parallel_model = FSDP(
-            model, auto_wrap_policy=llama_auto_wrap_policy, device_id=rank
+            model, auto_wrap_policy=llama_auto_wrap_policy, device_id=local_rank
         )
 
     del model
@@ -355,7 +355,7 @@ def main():
 
                 total_train_steps += 1
                 batch = {
-                    key: batch[key].to(rank) for key in batch.keys() if key != "idx"
+                    key: batch[key].to(local_rank) for key in batch.keys() if key != "idx"
                 }
 
                 outputs = parallel_model(**batch)
@@ -411,7 +411,7 @@ def main():
                 for step, batch in enumerate(valid_loss_dataloader):
 
                     batch = {
-                        key: batch[key].to(rank) for key in batch.keys() if key != "idx"
+                        key: batch[key].to(local_rank) for key in batch.keys() if key != "idx"
                     }
 
                     outputs = parallel_model(**batch)
@@ -434,9 +434,9 @@ def main():
             colour="blue", desc=f"Test Accuracy", total=total_length, dynamic_ncols=True
         )
         cor, cor_cot, total = (
-            torch.tensor(0, device=rank),
-            torch.tensor(0, device=rank),
-            torch.tensor(0, device=rank),
+            torch.tensor(0, device=local_rank),
+            torch.tensor(0, device=local_rank),
+            torch.tensor(0, device=local_rank),
         )
 
         with torch.no_grad():
@@ -445,7 +445,7 @@ def main():
                 test_idx = batch["idx"][0]
 
                 batch = {
-                    k: v.to(rank)
+                    k: v.to(local_rank)
                     for k, v in batch.items()
                     if v != None and k not in ["idx", "position_ids"]
                 }
