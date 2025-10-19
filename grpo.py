@@ -239,7 +239,7 @@ def train_grpo_style(
         num_iterations=getattr(configs, 'num_iterations', 1),
         epsilon=getattr(configs, 'epsilon', 0.2),
         scale_rewards=getattr(configs, 'scale_rewards', 'group'),
-        loss_type=getattr(configs, 'loss_type', 'dapo'),
+        # loss_type=getattr(configs, 'loss_type', 'dapo'),
         mask_truncated_completions=getattr(configs, 'mask_truncated_completions', False),
         shuffle_dataset=getattr(configs, 'shuffle_dataset', True),
     )
