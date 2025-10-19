@@ -49,15 +49,20 @@ def main():
     parser.add_argument("config_file")
     args = parser.parse_args()
 
-    # init distributed environment
-    dist.init_process_group("nccl")
-    local_rank = int(os.environ["LOCAL_RANK"])
-    rank = int(os.environ["RANK"])
-    world_size = int(os.environ["WORLD_SIZE"])
-    torch.cuda.set_device(local_rank)
+    if torch.cuda.is_available():
+        # init distributed environment
+        dist.init_process_group("nccl")
+        local_rank = int(os.environ["LOCAL_RANK"])
+        rank = int(os.environ["RANK"])
+        world_size = int(os.environ["WORLD_SIZE"])
+        torch.cuda.set_device(local_rank)
+    else:
+        local_rank = 0
+        rank = 0
+        world_size = 1
 
     # load the configuration file
-    with open(args.config_file) as f:
+    with open("/Users/Patron/PycharmProjects/coconut/args/gsm_grpo.yaml") as f:
         config_dict = yaml.safe_load(f)
 
     if rank == 0:
@@ -70,42 +75,43 @@ def main():
     if not os.path.exists(save_dir) and rank == 0:
         os.makedirs(save_dir)
 
-    torch.distributed.barrier()
+    if torch.cuda.is_available():
+        torch.distributed.barrier()
     cur_ckpts = os.listdir(save_dir)
 
     # check if the job is preempted and resumed.
 
-    if len(cur_ckpts) > 0 and not configs.only_eval:
-        # if there are previous checkpoints, and only_eval is False
-        # it means the previous run was preempted and the program is restarted.
-        # need to find the latest checkpoint and resume from that.
+    # if len(cur_ckpts) > 0 and not configs.only_eval:
+    #     # if there are previous checkpoints, and only_eval is False
+    #     # it means the previous run was preempted and the program is restarted.
+    #     # need to find the latest checkpoint and resume from that.
+    #
+    #     if rank == 0:
+    #         print(
+    #             f"Warning: found previous run and gonna resume from that. the inputted `resume` argument is ignored!"
+    #         )
+    #
+    #     checkpoints = [f for f in cur_ckpts if f.startswith("checkpoint_")]
+    #     checkpoints.sort(key=lambda x: int(x.split("_")[1]))
+    #
+    #     # Get the last item in the sorted list
+    #     latest_checkpoint = checkpoints[-1] if checkpoints else None
+    #     configs.resume = int(latest_checkpoint.split("_")[1])
+    #     load_dir = os.path.join(configs.save_path, configs.name, latest_checkpoint)
+    #
+    #     configs.load_model_path = load_dir
+    #     print(f"Loading from previous run epoch_{configs.resume}!")
 
-        if rank == 0:
-            print(
-                f"Warning: found previous run and gonna resume from that. the inputted `resume` argument is ignored!"
-            )
-
-        checkpoints = [f for f in cur_ckpts if f.startswith("checkpoint_")]
-        checkpoints.sort(key=lambda x: int(x.split("_")[1]))
-
-        # Get the last item in the sorted list
-        latest_checkpoint = checkpoints[-1] if checkpoints else None
-        configs.resume = int(latest_checkpoint.split("_")[1])
-        load_dir = os.path.join(configs.save_path, configs.name, latest_checkpoint)
-
-        configs.load_model_path = load_dir
-        print(f"Loading from previous run epoch_{configs.resume}!")
-
-    elif configs.resume != 0:
-        # by setting `resume`, we can skip a few epoches at the beginning.
-        if configs.load_model_path == "None":
-            print(
-                f"Warning: you want to skip the first {configs.resume} but you are not loading any existing checkpoint!"
-            )
-            # not an intended use case at this point
-        print(
-            f"Loading from {configs.load_model_path} and skip the first {configs.resume} epochs"
-        )
+    # elif configs.resume != 0:
+    #     # by setting `resume`, we can skip a few epoches at the beginning.
+    #     if configs.load_model_path == "None":
+    #         print(
+    #             f"Warning: you want to skip the first {configs.resume} but you are not loading any existing checkpoint!"
+    #         )
+    #         # not an intended use case at this point
+    #     print(
+    #         f"Loading from {configs.load_model_path} and skip the first {configs.resume} epochs"
+    #     )
 
     model = AutoModelForCausalLM.from_pretrained(configs.model_id)
     tokenizer = AutoTokenizer.from_pretrained(configs.model_id)
@@ -192,9 +198,14 @@ def main():
         parallel_model = DDP(model, device_ids=[local_rank])
 
     else:
-        parallel_model = FSDP(
-            model, auto_wrap_policy=llama_auto_wrap_policy, device_id=local_rank
-        )
+        # GRPO trainer has a different multi-gpu implementation
+        if not torch.cuda.is_available() or configs.grpo:
+            parallel_model = model
+        else:
+            parallel_model = FSDP(
+                model, auto_wrap_policy=llama_auto_wrap_policy, device_id=local_rank
+            )
+
 
     del model
 
@@ -260,7 +271,7 @@ def main():
             start_id,
             latent_id,
             end_id,
-            no_special_marker=configs.cot or configs.no_cot or configs.no_thoughts,
+            no_special_marker=configs.cot or configs.no_cot or configs.no_thoughts or configs.grpo,
         )
 
         valid_gen_dataloader = torch.utils.data.DataLoader(
@@ -269,7 +280,7 @@ def main():
             pin_memory=True,
             batch_size=1,
             collate_fn=collator,
-            sampler=DistributedSampler(dataset_gen_val, shuffle=False),
+            sampler=DistributedSampler(dataset_gen_val, shuffle=False) if torch.cuda.is_available() else None,
         )
 
         if not configs.only_eval:
@@ -281,7 +292,7 @@ def main():
                 start_id,
                 latent_id,
                 end_id,
-                no_special_marker=configs.cot or configs.no_cot or configs.no_thoughts,
+                no_special_marker=configs.cot or configs.no_cot or configs.no_thoughts or configs.grpo,
                 shuffle=True,
             )
 
@@ -292,7 +303,7 @@ def main():
                 pin_memory=True,
                 batch_size=configs.batch_size_training,
                 collate_fn=collator,
-                sampler=DistributedSampler(dataset_train, shuffle=True),
+                sampler=DistributedSampler(dataset_train, shuffle=True) if torch.cuda.is_available() else None,
             )
 
             # the sampler is deterministic even if shuffle is set to True
@@ -315,7 +326,7 @@ def main():
                 pin_memory=True,
                 batch_size=configs.batch_size_training,
                 collate_fn=collator,
-                sampler=DistributedSampler(dataset_loss_val, shuffle=False),
+                sampler=DistributedSampler(dataset_loss_val, shuffle=False) if torch.cuda.is_available() else None,
             )
 
             if configs.reset_optimizer:
@@ -327,7 +338,6 @@ def main():
                     weight_decay=configs.weight_decay,
                 )
 
-            parallel_model.module.train()
 
             total_length = len(train_dataloader) // configs.gradient_accumulation_steps
             pbar = tqdm(
@@ -357,7 +367,11 @@ def main():
         )
 
         with torch.no_grad():
-            parallel_model.module.eval()
+            # check if parallel model has module (FSDP)
+            model_to_use = parallel_model
+            if hasattr(parallel_model, "module"):
+                model_to_use = parallel_model.module
+            model_to_use.eval()
             for idx, batch in enumerate(valid_gen_dataloader):
                 test_idx = batch["idx"][0]
 
@@ -376,10 +390,10 @@ def main():
                 total += 1
 
                 # synced_gpus=True in FSDP mode, as we need to keep # forward pass the same on each device
-                outputs = parallel_model.module.generate(
+                outputs = model_to_use.generate(
                     **batch,
                     max_new_tokens=max_new_tokens,
-                    synced_gpus=not configs.only_eval,
+                    synced_gpus=(not configs.only_eval and torch.cuda.is_available()),
                 )
 
                 text_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
@@ -407,9 +421,10 @@ def main():
             pbar.close()
             print(f"Device {rank}: Cor={cor}, CoT={cor_cot}, Total={total}")
 
-        dist.all_reduce(cor_cot, op=dist.ReduceOp.SUM)
-        dist.all_reduce(cor, op=dist.ReduceOp.SUM)
-        dist.all_reduce(total, op=dist.ReduceOp.SUM)
+        if torch.cuda.is_available():
+            dist.all_reduce(cor_cot, op=dist.ReduceOp.SUM)
+            dist.all_reduce(cor, op=dist.ReduceOp.SUM)
+            dist.all_reduce(total, op=dist.ReduceOp.SUM)
 
         cor_cot = cor_cot.item()
         cor = cor.item()
@@ -425,7 +440,8 @@ def main():
         if configs.only_eval:
             break
 
-        dist.barrier()
+        if torch.cuda.is_available():
+            dist.barrier()
         if (
             cor / total > best_acc
             and configs.save_only_improve
@@ -440,17 +456,19 @@ def main():
 
             best_acc = cor / total
 
-            dist.barrier()
+            if torch.cuda.is_available():
+                dist.barrier()
+                torch.cuda.empty_cache()
             del states
             gc.collect()
-            torch.cuda.empty_cache()
 
 
 def train_dl_style(configs: Config, epoch: int, local_rank: int, optimizer: Union[AdamW, None],
-                   parallel_model: Union[DDP, FSDP], pbar: tqdm[NoReturn],
+                   parallel_model: Union[DDP, FSDP], pbar,
                    rank: Union[Literal[0], int], save_dir: Union[LiteralString, str, bytes], text_table: Table, tokenizer,
                    total_train_steps: int, train_dataloader: DataLoader[Any], valid_loss_dataloader: DataLoader[Any],
                    wandb_run: Union[Run, None], world_size: int):
+    parallel_model.module.train()
     for step, batch in enumerate(train_dataloader):
 
         if step == 0 and wandb_run and rank == 0:
