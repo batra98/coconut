@@ -4,17 +4,23 @@
 import torch
 import torch.distributed
 import torch.optim as optim
+from torch.optim import AdamW
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 import wandb
+from wandb import Table
+from wandb.sdk.wandb_run import Run
 
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 import torch.distributed as dist
+from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 from transformers.models.gpt2.modeling_gpt2 import GPT2Block
+from typing import Any, Literal, NoReturn, Union
+from typing_extensions import LiteralString
 
 from coconut import Coconut
 from dataset import (
@@ -23,6 +29,7 @@ from dataset import (
     get_cot_latent_dataset,
     MyCollator,
 )
+from grpo import train_grpo_style
 
 from tqdm import tqdm
 from copy import copy
@@ -142,7 +149,7 @@ def main():
             loaded = True
             print(model.load_state_dict(saved_weights, strict=False))
 
-    if not (configs.cot or configs.no_thoughts or configs.no_cot):
+    if not (configs.cot or configs.no_thoughts or configs.no_cot or configs.grpo):
         # if we need new tokens, initialize their embeddings and lm heads
         model.resize_token_embeddings(len(tokenizer))
         embeddings = model.get_input_embeddings()
@@ -239,10 +246,12 @@ def main():
 
     collator = MyCollator(tokenizer, latent_id=latent_id, label_pad_token_id=-100)
 
+
+    # Sujan probably set num_epochs to 1 for grpo for minimal code changes
     for epoch in range(configs.resume, configs.num_epochs):
 
         scheduled_stage = (
-            0 if (configs.cot or configs.no_cot) else epoch // configs.epochs_per_stage
+            0 if (configs.cot or configs.no_cot or configs.grpo) else epoch // configs.epochs_per_stage
         )
         dataset_gen_val = get_question_latent_dataset(
             scheduled_stage,
@@ -296,7 +305,7 @@ def main():
                 start_id,
                 latent_id,
                 end_id,
-                no_special_marker=configs.cot or configs.no_cot or configs.no_thoughts,
+                no_special_marker=configs.cot or configs.no_cot or configs.no_thoughts or configs.grpo,
             )
 
             valid_loss_dataloader = torch.utils.data.DataLoader(
@@ -328,104 +337,12 @@ def main():
                 dynamic_ncols=True,
             )
 
-            for step, batch in enumerate(train_dataloader):
-
-                if step == 0 and wandb_run and rank == 0:
-                    print("logging training data")
-                    cur_bs = len(batch["input_ids"])
-                    text_str = ""
-                    for data_idx in range(cur_bs):
-                        for token_idx in range(len(batch["input_ids"][data_idx])):
-                            text_str += (
-                                str(batch["input_ids"][data_idx][token_idx].item())
-                                + " "
-                                + str(batch["labels"][data_idx][token_idx].item())
-                                + " "
-                                + tokenizer.decode(
-                                    batch["input_ids"][data_idx][token_idx]
-                                )
-                                + "\n"
-                            )
-                        text_str += "====" * 10 + "\n"
-                    text_table.add_data(total_train_steps, text_str)
-                    # copy the table due to a bug in wandb
-                    # https://github.com/wandb/wandb/issues/2981
-
-                    wandb_run.log({"data_table": copy(text_table)})
-
-                total_train_steps += 1
-                batch = {
-                    key: batch[key].to(local_rank) for key in batch.keys() if key != "idx"
-                }
-
-                outputs = parallel_model(**batch)
-
-                loss = outputs.loss / configs.gradient_accumulation_steps
-                loss.backward()
-
-                if (step + 1) % configs.gradient_accumulation_steps == 0 or step == len(
-                    train_dataloader
-                ) - 1:
-                    optimizer.step()
-                    optimizer.zero_grad()
-                    pbar.update(1)
-
-                if wandb_run and rank == 0:
-                    log_dict = {
-                        "train/epoch": epoch + 1,
-                        "train/step": epoch * len(train_dataloader) + step,
-                        "train/loss": loss.detach().float()
-                        * configs.gradient_accumulation_steps,
-                    }
-                    wandb_run.log(log_dict)
-
-                pbar.set_description(
-                    f"Training Epoch: {epoch+1}/{configs.num_epochs}, batch {step}/{len(train_dataloader)} "
-                    f"completed (loss: {round(float(loss.detach().float() * configs.gradient_accumulation_steps), 4)}"
-                )
-            pbar.close()
-            dist.barrier()
-
-            if (
-                not configs.save_only_improve
-                and not configs.debug
-                and not configs.only_eval
-            ):
-                states = parallel_model.state_dict()
-                if rank == 0:
-                    torch.save(
-                        states, os.path.join(save_dir, f"checkpoint_{epoch + 1}")
-                    )
-                    print("saving model.")
-
-                dist.barrier()
-                del states
-                gc.collect()
-                torch.cuda.empty_cache()
-
-            # val loss
-            total_loss = 0
-
-            with torch.no_grad():
-                parallel_model.module.eval()
-                for step, batch in enumerate(valid_loss_dataloader):
-
-                    batch = {
-                        key: batch[key].to(local_rank) for key in batch.keys() if key != "idx"
-                    }
-
-                    outputs = parallel_model(**batch)
-                    loss = outputs.loss
-                    dist.all_reduce(loss, op=dist.ReduceOp.SUM)
-                    total_loss += loss.item() / world_size
-
-                if wandb_run and rank == 0:
-
-                    log_dict = {
-                        "eval/loss": total_loss / len(valid_loss_dataloader),
-                    }
-                    wandb_run.log(log_dict)
-                    print("eval loss", total_loss / len(valid_loss_dataloader))
+            if not configs.grpo:
+                train_dl_style(configs, epoch, local_rank, optimizer, parallel_model, pbar, rank, save_dir, text_table,
+                           tokenizer, total_train_steps, train_dataloader, valid_loss_dataloader, wandb_run, world_size)
+            else:
+                train_grpo_style(configs, epoch, local_rank, parallel_model, pbar, rank, save_dir,
+                               tokenizer, total_train_steps, base_dataset_train, wandb_run, world_size, max_new_tokens)
 
         # val generation accuracy
         total_length = len(valid_gen_dataloader)
@@ -527,6 +444,109 @@ def main():
             del states
             gc.collect()
             torch.cuda.empty_cache()
+
+
+def train_dl_style(configs: Config, epoch: int, local_rank: int, optimizer: Union[AdamW, None],
+                   parallel_model: Union[DDP, FSDP], pbar: tqdm[NoReturn],
+                   rank: Union[Literal[0], int], save_dir: Union[LiteralString, str, bytes], text_table: Table, tokenizer,
+                   total_train_steps: int, train_dataloader: DataLoader[Any], valid_loss_dataloader: DataLoader[Any],
+                   wandb_run: Union[Run, None], world_size: int):
+    for step, batch in enumerate(train_dataloader):
+
+        if step == 0 and wandb_run and rank == 0:
+            print("logging training data")
+            cur_bs = len(batch["input_ids"])
+            text_str = ""
+            for data_idx in range(cur_bs):
+                for token_idx in range(len(batch["input_ids"][data_idx])):
+                    text_str += (
+                            str(batch["input_ids"][data_idx][token_idx].item())
+                            + " "
+                            + str(batch["labels"][data_idx][token_idx].item())
+                            + " "
+                            + tokenizer.decode(
+                        batch["input_ids"][data_idx][token_idx]
+                    )
+                            + "\n"
+                    )
+                text_str += "====" * 10 + "\n"
+            text_table.add_data(total_train_steps, text_str)
+            # copy the table due to a bug in wandb
+            # https://github.com/wandb/wandb/issues/2981
+
+            wandb_run.log({"data_table": copy(text_table)})
+
+        total_train_steps += 1
+        batch = {
+            key: batch[key].to(local_rank) for key in batch.keys() if key != "idx"
+        }
+
+        outputs = parallel_model(**batch)
+
+        loss = outputs.loss / configs.gradient_accumulation_steps
+        loss.backward()
+
+        if (step + 1) % configs.gradient_accumulation_steps == 0 or step == len(
+                train_dataloader
+        ) - 1:
+            optimizer.step()
+            optimizer.zero_grad()
+            pbar.update(1)
+
+        if wandb_run and rank == 0:
+            log_dict = {
+                "train/epoch": epoch + 1,
+                "train/step": epoch * len(train_dataloader) + step,
+                "train/loss": loss.detach().float()
+                              * configs.gradient_accumulation_steps,
+            }
+            wandb_run.log(log_dict)
+
+        pbar.set_description(
+            f"Training Epoch: {epoch + 1}/{configs.num_epochs}, batch {step}/{len(train_dataloader)} "
+            f"completed (loss: {round(float(loss.detach().float() * configs.gradient_accumulation_steps), 4)}"
+        )
+    pbar.close()
+    dist.barrier()
+
+    if (
+            not configs.save_only_improve
+            and not configs.debug
+            and not configs.only_eval
+    ):
+        states = parallel_model.state_dict()
+        if rank == 0:
+            torch.save(
+                states, os.path.join(save_dir, f"checkpoint_{epoch + 1}")
+            )
+            print("saving model.")
+
+        dist.barrier()
+        del states
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    # val loss
+    total_loss = 0
+
+    with torch.no_grad():
+        parallel_model.module.eval()
+        for step, batch in enumerate(valid_loss_dataloader):
+            batch = {
+                key: batch[key].to(local_rank) for key in batch.keys() if key != "idx"
+            }
+
+            outputs = parallel_model(**batch)
+            loss = outputs.loss
+            dist.all_reduce(loss, op=dist.ReduceOp.SUM)
+            total_loss += loss.item() / world_size
+
+        if wandb_run and rank == 0:
+            log_dict = {
+                "eval/loss": total_loss / len(valid_loss_dataloader),
+            }
+            wandb_run.log(log_dict)
+            print("eval loss", total_loss / len(valid_loss_dataloader))
 
 
 if __name__ == "__main__":
