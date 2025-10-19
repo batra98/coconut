@@ -116,12 +116,47 @@ def compute_grpo_reward(
     
     return total_reward
 
+# Define reward function for GRPO
+# GRPO calls reward function with keyword arguments:
+# reward_func(prompts=prompts, completions=completions, completion_ids=completion_ids_list, **reward_kwargs)
+def reward_function(prompts, completions, answer, completion_ids=None, **kwargs):
+        """
+        Compute rewards for generated completions.
+        
+        Args:
+            prompts: list of input prompt strings
+            completions: list of generated completion strings
+            answers: list of ground truth answer strings
+            completion_ids: list of token IDs for completions (optional)
+            **kwargs: additional arguments (e.g., trainer_state)
+            
+        Returns:
+            list[float]: Reward scores for each completion
+        """
+        rewards = []
+        
+        # Match each completion with its ground truth
+        for idx, (prompt, completion, answer) in enumerate(zip(prompts, completions, answer)):
+            # Find which training example this prompt corresponds to
+            # Since GRPO generates multiple samples per prompt, we need to map back
+            ground_truth = answer
+            
+            # Compute reward
+            reward = compute_grpo_reward(
+                completion,
+                ground_truth,
+                reward_weight_final_answer=1,
+                reward_weight_format=.1,
+            )
+            rewards.append(reward)
+        
+        return rewards
 
 def train_grpo_style(
     configs: Config,
     epoch: int,
     local_rank: int,
-    parallel_model,
+    model,
     pbar,
     rank: int,
     save_dir: str,
@@ -140,7 +175,7 @@ def train_grpo_style(
         configs: Configuration object
         epoch: Current training epoch
         local_rank: Local GPU rank
-        parallel_model: FSDP/DDP wrapped model
+        model : original wrapped model
         pbar: Progress bar
         rank: Global rank
         save_dir: Directory to save checkpoints
@@ -156,6 +191,8 @@ def train_grpo_style(
     # GRPO needs prompts (questions) and reference answers for reward computation
     train_prompts = []
     train_answers = []
+
+    grpo_dataset = []
     
     for idx in range(len(base_dataset_train)):
         sample = base_dataset_train[idx]
@@ -171,6 +208,10 @@ def train_grpo_style(
         if "###" in answer_text:
             answer_text = answer_text.split("###")[-1].strip()
         train_answers.append(answer_text)
+        grpo_dataset.append({
+            "prompt": prompt_text,
+            "answer": answer_text,
+        })
     
     # Create GRPO config
     grpo_config = GRPOConfig(
@@ -203,54 +244,15 @@ def train_grpo_style(
         shuffle_dataset=getattr(configs, 'shuffle_dataset', True),
     )
     
-    # Define reward function for GRPO
-    def reward_function(samples, prompts, outputs, **kwargs):
-        """
-        Compute rewards for generated completions.
-        samples: list of generated text
-        prompts: list of input prompts
-        outputs: model outputs
-        """
-        rewards = []
-        
-        # Match each generated sample with its ground truth
-        for idx, (prompt, generated_text) in enumerate(zip(prompts, samples)):
-            # Find which training example this prompt corresponds to
-            prompt_idx = idx % len(train_prompts)  # Handle multiple generations per prompt
-            ground_truth = train_answers[prompt_idx]
-            
-            # Compute reward
-            reward = compute_grpo_reward(
-                generated_text,
-                ground_truth,
-                reward_weight_final_answer=getattr(configs, 'reward_weight_final_answer', 1.0),
-                reward_weight_format=getattr(configs, 'reward_weight_format', 0.1),
-            )
-            rewards.append(reward)
-        
-        return rewards
+
     
     # Prepare dataset in TRL format
-    # TRL expects a dataset with 'input_ids' or 'query' field
-    # Tokenize prompts
-    tokenized_prompts = tokenizer(
-        train_prompts,
-        padding=False,
-        truncation=True,
-        return_tensors=None,
-    )
-    
-    grpo_dataset = HFDataset.from_dict({
-        'input_ids': tokenized_prompts['input_ids'],
-        'attention_mask': tokenized_prompts['attention_mask'],
-    })
+    # GRPO trainer expects a dataset with 'prompt' field (string prompts, not tokenized)
+    grpo_dataset = HFDataset.from_list(grpo_dataset)
     
     # Get the unwrapped model for GRPO trainer
     # GRPO trainer expects the base model without FSDP/DDP wrapper
-    if hasattr(parallel_model, 'module'):
-        unwrapped_model = parallel_model.module
-    else:
-        unwrapped_model = parallel_model
+    unwrapped_model = model
     
     # Initialize GRPO trainer
     try:
@@ -260,10 +262,10 @@ def train_grpo_style(
         
         grpo_trainer = GRPOTrainer(
             model=unwrapped_model,
-            config=grpo_config,
+            reward_funcs=reward_function,
+            args=grpo_config,
             train_dataset=grpo_dataset,
-            tokenizer=tokenizer,
-            reward_function=reward_function,
+            processing_class=tokenizer,
         )
         
         # Train
@@ -274,8 +276,8 @@ def train_grpo_style(
         
         # Update the parallel_model with trained weights
         # This ensures the FSDP wrapped model gets the updates
-        if hasattr(parallel_model, 'module'):
-            parallel_model.module.load_state_dict(unwrapped_model.state_dict())
+        # if hasattr(parallel_model, 'module'):
+        model.load_state_dict(unwrapped_model.state_dict())
         
         # Log metrics to the same wandb run as the rest of the code
         if wandb_run and rank == 0:
@@ -307,21 +309,22 @@ def train_grpo_style(
         raise
     
     pbar.close()
-    dist.barrier()
+    if torch.cuda.is_available():
+        dist.barrier()
     
     # Save checkpoint
     if not configs.save_only_improve and not configs.debug and not configs.only_eval:
-        if hasattr(parallel_model, 'module'):
-            states = parallel_model.module.state_dict()
-        else:
-            states = parallel_model.state_dict()
+
+        states = unwrapped_model.state_dict()
             
         if rank == 0:
             torch.save(states, os.path.join(save_dir, f"checkpoint_{epoch + 1}"))
             print("Saving GRPO model checkpoint.")
-        
-        dist.barrier()
+
+        if torch.cuda.is_available():
+            dist.barrier()
+            torch.cuda.empty_cache()
+
         del states
         gc.collect()
-        torch.cuda.empty_cache()
 
