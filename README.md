@@ -114,28 +114,98 @@ All datasets should be JSON files with the following structure:
 Our core contribution - successfully replicating the Coconut paper's results.
 
 #### Step 1: Train CoT Baseline (Stage 0)
+
+On each node (instgpu-0 through instgpu-4):
+
 ```bash
-torchrun --nnodes 1 --nproc_per_node 4 run.py args/gsm_cot.yaml
+# Set up distributed training environment
+export MASTER_ADDR=instgpu-0.cs.wisc.edu
+export MASTER_PORT=29500
+
+# On master node (instgpu-0)
+torchrun \
+  --nnodes 5 \
+  --nproc_per_node 8 \
+  --node_rank 0 \
+  --master_addr $MASTER_ADDR \
+  --master_port $MASTER_PORT \
+  run.py args/gsm_cot.yaml
+
+# On worker nodes (instgpu-1, instgpu-2, instgpu-3, instgpu-4)
+# Update node_rank to 1, 2, 3, 4 respectively
+torchrun \
+  --nnodes 5 \
+  --nproc_per_node 8 \
+  --node_rank 1 \
+  --master_addr $MASTER_ADDR \
+  --master_port $MASTER_PORT \
+  run.py args/gsm_cot.yaml
 ```
 
 This trains GPT-2 with explicit chain-of-thought reasoning, achieving ~40% validation accuracy.
 
+**Pre-trained checkpoint**: [gsm-cot-checkpoint-22](https://huggingface.co/batra98/gsm-cot-checkpoint-22) on HuggingFace
+
 #### Step 2: Train Coconut with Continuous Thoughts
+
+Update `args/gsm_coconut.yaml` with your CoT checkpoint path (or use our pre-trained checkpoint), then run on each node:
+
 ```bash
-# Update args/gsm_coconut.yaml with your CoT checkpoint path
-# Then run:
-torchrun --nnodes 1 --nproc_per_node 4 run.py args/gsm_coconut.yaml
+# On master node (instgpu-0)
+torchrun \
+  --nnodes 5 \
+  --nproc_per_node 8 \
+  --node_rank 0 \
+  --master_addr $MASTER_ADDR \
+  --master_port $MASTER_PORT \
+  run.py args/gsm_coconut.yaml
+
+# On worker nodes (instgpu-1, instgpu-2, instgpu-3, instgpu-4)
+# Update node_rank accordingly
+torchrun \
+  --nnodes 5 \
+  --nproc_per_node 8 \
+  --node_rank 1 \
+  --master_addr $MASTER_ADDR \
+  --master_port $MASTER_PORT \
+  run.py args/gsm_coconut.yaml
 ```
 
 Coconut progressively replaces text reasoning steps with continuous latent thoughts through staged curriculum training.
 
+**Pre-trained checkpoints**: [gsm-coconut](https://huggingface.co/batra98/gsm-coconut) on HuggingFace (checkpoints 4-25)
+
 #### Step 3: Evaluate
+
+Update `args/gsm_coconut_eval.yaml` with the best checkpoint path, then run:
+
 ```bash
-# Update args/gsm_coconut_eval.yaml with best checkpoint
-torchrun --nnodes 1 --nproc_per_node 4 run.py args/gsm_coconut_eval.yaml
+torchrun \
+  --nnodes 5 \
+  --nproc_per_node 8 \
+  --node_rank 0 \
+  --master_addr $MASTER_ADDR \
+  --master_port $MASTER_PORT \
+  run.py args/gsm_coconut_eval.yaml
 ```
 
 **Results**: [Wandb links to be added]
+
+#### Using Pre-trained Checkpoints
+
+To use our pre-trained checkpoints from HuggingFace:
+
+```bash
+# Download CoT checkpoint
+git clone https://huggingface.co/batra98/gsm-cot-checkpoint-22
+
+# Download Coconut checkpoints
+git clone https://huggingface.co/batra98/gsm-coconut
+
+# Update your config files with the local paths
+# For example, in args/gsm_coconut.yaml:
+# load_model_path: gsm-cot-checkpoint-22/checkpoint_22
+```
 
 ### 2. GRPO Training (Reinforcement Learning)
 
