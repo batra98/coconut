@@ -107,7 +107,7 @@ All datasets should be JSON files with the following structure:
 
 ## Experiments
 
-**Hardware Setup**: All experiments were conducted on UW-Madison's instgpu cluster (instgpu-0 through instgpu-4), each equipped with 8x NVIDIA 2080Ti GPUs.
+**Hardware Setup**: All experiments were conducted on UW-Madison's instgpu cluster (instgpu-01 through instgpu-4), each equipped with 8x NVIDIA 2080Ti GPUs.
 
 ### 1. Coconut Replication on GSM8K
 
@@ -115,14 +115,14 @@ Our core contribution - successfully replicating the Coconut paper's results.
 
 #### Step 1: Train CoT Baseline (Stage 0)
 
-On each node (instgpu-0 through instgpu-4):
+On each node (instgpu-01 through instgpu-4):
 
 ```bash
 # Set up distributed training environment
-export MASTER_ADDR=instgpu-0.cs.wisc.edu
+export MASTER_ADDR=instgpu-01.cs.wisc.edu
 export MASTER_PORT=29500
 
-# On master node (instgpu-0)
+# On master node (instgpu-01)
 torchrun \
   --nnodes 5 \
   --nproc_per_node 8 \
@@ -151,7 +151,7 @@ This trains GPT-2 with explicit chain-of-thought reasoning, achieving ~40% valid
 Update `args/gsm_coconut.yaml` with your CoT checkpoint path (or use our pre-trained checkpoint), then run on each node:
 
 ```bash
-# On master node (instgpu-0)
+# On master node (instgpu-01)
 torchrun \
   --nnodes 5 \
   --nproc_per_node 8 \
@@ -329,8 +329,8 @@ For large-scale experiments across multiple instgpu nodes (each with 8x 2080Ti G
 **Important**: NCCL does not work reliably on the instgpu cluster. Use Gloo backend instead.
 
 ```bash
-# On master node (e.g., instgpu-0)
-export MASTER_ADDR=instgpu-0.cs.wisc.edu
+# On master node (e.g., instgpu-01)
+export MASTER_ADDR=instgpu-01.cs.wisc.edu
 export MASTER_PORT=29500
 
 # Run on master node
