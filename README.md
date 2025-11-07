@@ -28,7 +28,7 @@ This project goes beyond replicating the original Coconut paper. We have:
 
 1. **Successfully replicated Coconut on GSM8K** - Validated the original paper's claims
 2. **Implemented GRPO training** - Applied Group Relative Policy Optimization for reinforcement learning fine-tuning
-3. **Added Pass@K evaluation** - Implemented Pass@20 metric for robust model evaluation
+3. **Added Pass@K evaluation** - Implemented Pass@20 metric for both vanilla CoT and Coconut models with temperature and nucleus sampling
 4. **Experimented with Qwen 2.5-3B** - Tested Coconut architecture with different base models
 5. **Soft Thinking experiments** - Explored alternative training strategies and smoothing techniques
 
@@ -232,16 +232,42 @@ The format reward encourages the model to maintain proper reasoning structure wi
 
 ### 3. Pass@K Evaluation
 
-Branch: `sra/pass_k`
+**Branch: `sra/pass_k`** - For vanilla CoT models  
+**Branch: `sra/pass_k_coconut`** - For Coconut models with continuous thoughts
 
 Standard greedy decoding only generates one answer. Pass@K evaluation generates K diverse samples and measures if any of them are correct - a more robust metric for reasoning tasks.
 
 **Implementation:**
-- Generates 20 samples per problem with temperature sampling
+- Generates 20 samples per problem with temperature sampling (temperature=0.7, top_p=0.95)
 - Checks if at least one sample produces the correct answer
 - Reports Pass@1 (greedy), Pass@20 (sampling), and CoT match metrics
 
-**Modifications:** See `run.py` diff in the branch for implementation details.
+**Key Features:**
+- `sra/pass_k`: Implements Pass@20 evaluation for vanilla models
+- `sra/pass_k_coconut`: Extends Coconut's `generate()` method with sampling support
+  - Adds `_sample_token()` method with temperature and nucleus (top-p) sampling
+  - Enables diverse output generation while maintaining quality
+  - Backward compatible with greedy decoding
+
+**Usage:**
+```bash
+# For Coconut models - checkout sra/pass_k_coconut branch
+git checkout sra/pass_k_coconut
+
+# Run evaluation with Pass@20
+torchrun \
+  --nnodes 5 \
+  --nproc_per_node 8 \
+  --node_rank 0 \
+  --master_addr instgpu-01.cs.wisc.edu \
+  --master_port 29500 \
+  run.py args/gsm_coconut_eval.yaml
+```
+
+**Metrics Reported:**
+- `eval/acc` - Standard greedy accuracy
+- `eval/cot_em` - Chain-of-thought exact match
+- `eval/pass@20` - Success rate with 20 samples per problem
 
 ### 4. Qwen 2.5-3B Experiments
 
@@ -388,12 +414,18 @@ load_model_path: /path/to/checkpoint_5
 
 We track multiple metrics to comprehensively evaluate reasoning capabilities:
 
-| Metric | Description |
-|--------|-------------|
-| **Accuracy** | Exact match of final answer |
-| **CoT EM** | Exact match of entire reasoning chain |
-| **Pass@20** | Success rate with 20 samples per problem |
-| **Format Score** | Adherence to reasoning format (GRPO) |
+| Metric | Description | Branch |
+|--------|-------------|--------|
+| **Accuracy** | Exact match of final answer (greedy decoding) | All |
+| **CoT EM** | Exact match of entire reasoning chain | All |
+| **Pass@20** | Success rate with 20 samples per problem (temperature sampling) | `sra/pass_k`, `sra/pass_k_coconut` |
+| **Format Score** | Adherence to reasoning format with `<<computation=result>>` | `sra/grpo` |
+
+**Why Pass@20 Matters:**
+- Standard accuracy only measures if the model **always** produces the correct answer
+- Pass@20 measures if the model **can** produce the correct answer with diverse sampling
+- More robust indicator of model capabilities and reasoning understanding
+- Better reflects real-world usage where multiple attempts or diverse outputs are acceptable
 
 ---
 
@@ -422,10 +454,21 @@ Our GRPO implementation (`grpo.py`) features:
 
 ### Pass@K Sampling
 
-Generates diverse outputs using:
-- Temperature: 0.7
-- Top-p (nucleus) sampling: 0.95
-- Multiple samples per problem: 20
+**Branch-specific implementation:**
+
+**`sra/pass_k`** (vanilla models):
+- Modified `run.py` to generate multiple samples during evaluation
+- Uses HuggingFace's built-in sampling parameters
+
+**`sra/pass_k_coconut`** (Coconut models):
+- Implemented custom `_sample_token()` method in `coconut.py`
+- Supports temperature and top-p (nucleus) sampling
+- Maintains continuous thought processing during sampling
+
+**Sampling parameters:**
+- Temperature: 0.7 (controls randomness)
+- Top-p (nucleus): 0.95 (filters low-probability tokens)
+- Samples per problem: 20
 
 ---
 
