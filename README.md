@@ -7,14 +7,14 @@ This repository contains our implementation and extensions of [Coconut](https://
 
 ![Coconut Architecture](assets/coconut.png)
 
-## 👥 Team Members
+## Team Members
 
 - **Gaurav Batra** ([batra98](https://github.com/batra98))
 - **Sujan Reddy Ale** ([Sujan242](https://github.com/Sujan242))
 - **Aayush Gupta**
 - **Srishti Lodha** ([Srish-tii](https://github.com/Srish-tii))
 
-## 🎯 Project Overview
+## Project Overview
 
 Coconut introduces a paradigm shift in how language models perform reasoning. Instead of generating explicit reasoning steps as text tokens (like Chain-of-Thought), Coconut learns to reason in a continuous latent space, leading to:
 
@@ -26,17 +26,19 @@ Coconut introduces a paradigm shift in how language models perform reasoning. In
 
 This project goes beyond replicating the original Coconut paper. We have:
 
-1. ✅ **Successfully replicated Coconut on GSM8K** - Validated the original paper's claims
-2. 🎯 **Implemented GRPO training** - Applied Group Relative Policy Optimization for reinforcement learning fine-tuning
-3. 📊 **Added Pass@K evaluation** - Implemented Pass@20 metric for robust model evaluation
-4. 🤖 **Experimented with Qwen 2.5-3B** - Tested Coconut architecture with different base models
-5. 🧪 **Soft Thinking experiments** - Explored alternative training strategies and smoothing techniques
+1. **Successfully replicated Coconut on GSM8K** - Validated the original paper's claims
+2. **Implemented GRPO training** - Applied Group Relative Policy Optimization for reinforcement learning fine-tuning
+3. **Added Pass@K evaluation** - Implemented Pass@20 metric for robust model evaluation
+4. **Experimented with Qwen 2.5-3B** - Tested Coconut architecture with different base models
+5. **Soft Thinking experiments** - Explored alternative training strategies and smoothing techniques
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Environment Setup
+
+**Option 1: Using Conda**
 
 ```bash
 # Clone the repository
@@ -49,6 +51,29 @@ conda activate coconut
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Login to wandb for experiment tracking
+wandb login
+```
+
+**Option 2: Using uv (Faster Alternative)**
+
+[uv](https://github.com/astral-sh/uv) is a fast Python package installer and resolver written in Rust.
+
+```bash
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Clone the repository
+git clone https://github.com/batra98/coconut.git
+cd coconut
+
+# Create virtual environment with uv
+uv venv --python 3.12
+source .venv/bin/activate
+
+# Install dependencies using uv (much faster than pip)
+uv pip install -r requirements.txt
 
 # Login to wandb for experiment tracking
 wandb login
@@ -80,7 +105,9 @@ All datasets should be JSON files with the following structure:
 
 ---
 
-## 🔬 Experiments
+## Experiments
+
+**Hardware Setup**: All experiments were conducted on UW-Madison's instgpu cluster (instgpu-0 through instgpu-4), each equipped with 8x NVIDIA 2080Ti GPUs.
 
 ### 1. Coconut Replication on GSM8K
 
@@ -108,7 +135,7 @@ Coconut progressively replaces text reasoning steps with continuous latent thoug
 torchrun --nnodes 1 --nproc_per_node 4 run.py args/gsm_coconut_eval.yaml
 ```
 
-**📊 Results**: [Wandb links to be added]
+**Results**: [Wandb links to be added]
 
 ### 2. GRPO Training (Reinforcement Learning)
 
@@ -171,7 +198,7 @@ Explored alternative training strategies with smoothing and continuous thought g
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```
 coconut/
@@ -193,7 +220,7 @@ coconut/
 └── data/                  # Dataset directory
 ```
 
-## 🎛️ Configuration
+## Configuration
 
 All experiments are controlled via YAML configuration files in the `args/` directory.
 
@@ -223,19 +250,50 @@ Each stage trains for `epochs_per_stage` epochs (typically 3).
 
 ---
 
-## 🧪 Advanced Usage
+## Advanced Usage
 
-### Multi-Node Training
+### Multi-Node Training on instgpu Cluster
 
-For large-scale experiments across multiple machines:
+For large-scale experiments across multiple instgpu nodes (each with 8x 2080Ti GPUs):
+
+**Important**: NCCL does not work reliably on the instgpu cluster. Use Gloo backend instead.
 
 ```bash
+# On master node (e.g., instgpu-0)
+export MASTER_ADDR=instgpu-0.cs.wisc.edu
+export MASTER_PORT=29500
+
+# Run on master node
 torchrun \
-  --nnodes 2 \
-  --nproc_per_node 4 \
-  --rdzv_backend c10d \
-  --rdzv_endpoint $MASTER_ADDR:$MASTER_PORT \
+  --nnodes 5 \
+  --nproc_per_node 8 \
+  --node_rank 0 \
+  --master_addr $MASTER_ADDR \
+  --master_port $MASTER_PORT \
   run.py args/gsm_coconut.yaml
+
+# On worker nodes (instgpu-1, instgpu-2, instgpu-3, instgpu-4)
+# Set node_rank appropriately (1, 2, 3, 4)
+torchrun \
+  --nnodes 5 \
+  --nproc_per_node 8 \
+  --node_rank 1 \
+  --master_addr $MASTER_ADDR \
+  --master_port $MASTER_PORT \
+  run.py args/gsm_coconut.yaml
+```
+
+**Disabling NCCL**: To use Gloo backend instead of NCCL, set before running:
+
+```bash
+export GLOO_SOCKET_IFNAME=eth0  # or appropriate network interface
+# Then modify distributed initialization in your code to use 'gloo' instead of 'nccl'
+```
+
+Alternatively, run with single node but all 8 GPUs:
+
+```bash
+torchrun --nnodes 1 --nproc_per_node 8 run.py args/gsm_coconut.yaml
 ```
 
 ### Debugging Mode
@@ -256,7 +314,7 @@ load_model_path: /path/to/checkpoint_5
 
 ---
 
-## 📊 Evaluation Metrics
+## Evaluation Metrics
 
 We track multiple metrics to comprehensively evaluate reasoning capabilities:
 
@@ -269,7 +327,7 @@ We track multiple metrics to comprehensively evaluate reasoning capabilities:
 
 ---
 
-## 🔍 Key Implementation Details
+## Key Implementation Details
 
 ### Coconut Architecture
 
@@ -301,7 +359,7 @@ Generates diverse outputs using:
 
 ---
 
-## 🛠️ Technical Stack
+## Technical Stack
 
 - **PyTorch 2.5.1** - Deep learning framework
 - **Transformers 4.51.1** - HuggingFace models and tokenizers
@@ -311,7 +369,7 @@ Generates diverse outputs using:
 
 ---
 
-## 📚 Datasets
+## Datasets
 
 ### GSM8K (Grade School Math 8K)
 - **Training**: 7,473 problems
@@ -330,7 +388,7 @@ Generates diverse outputs using:
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -351,7 +409,7 @@ Generates diverse outputs using:
 
 ---
 
-## 📖 Citation
+## Citation
 
 If you use this codebase in your research, please cite the original Coconut paper:
 
@@ -366,7 +424,7 @@ If you use this codebase in your research, please cite the original Coconut pape
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 This is a course project repository, but we welcome:
 - Bug reports and fixes
@@ -377,13 +435,13 @@ Please open an issue or submit a pull request!
 
 ---
 
-## 📝 License
+## License
 
 This project is released under the MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Original Coconut paper authors at Meta AI Research
 - CS 739 course staff at UW-Madison
@@ -392,7 +450,7 @@ This project is released under the MIT License - see [LICENSE](LICENSE) file for
 
 ---
 
-## 📬 Contact
+## Contact
 
 For questions about this project:
 - Open a GitHub issue
