@@ -11,7 +11,7 @@ This repository contains our implementation and extensions of [Coconut](https://
 
 - **Gaurav Batra** ([batra98](https://github.com/batra98))
 - **Sujan Reddy Ale** ([Sujan242](https://github.com/Sujan242))
-- **Aayush Gupta**
+- **Aayush Gupta** ([AayGup](https://github.com/AayGup))
 - **Srishti Lodha** ([Srish-tii](https://github.com/Srish-tii))
 
 ## Project Overview
