@@ -1,7 +1,7 @@
-!git clone https://github.com/facebookresearch/coconut.git
-# %cd coconut
-!pip install -r requirements.txt
-!pip install transformers accelerate peft bitsandbytes datasets torchvision tqdm --upgrade --extra-index-url https://download.pytorch.org/whl/cu121
+# !git clone https://github.com/facebookresearch/coconut.git
+# # %cd coconut
+# !pip install -r requirements.txt
+# !pip install transformers accelerate peft bitsandbytes datasets torchvision tqdm --upgrade --extra-index-url https://download.pytorch.org/whl/cu121
 
 import torch
 from torch.optim import AdamW
