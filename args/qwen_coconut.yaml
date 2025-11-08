@@ -1,0 +1,55 @@
+# Qwen 2.5-3B Coconut Fine-tuning Configuration
+
+# Model Configuration
+model:
+  name: "Qwen/Qwen2.5-3B-Instruct"
+  torch_dtype: "float16"  # Use FP16 for faster training
+  device_map: "auto"  # Automatically use GPU if available
+
+# Latent Token Configuration
+latent:
+  token: "<|latent|>"
+
+# LoRA Configuration
+lora:
+  r: 8
+  alpha: 32
+  target_modules: ["q_proj", "v_proj"]
+  dropout: 0.05
+  bias: "none"
+  task_type: "CAUSAL_LM"
+
+# Dataset Configuration
+dataset:
+  name: "gsm8k"
+  subset: "main"
+  split: "train"
+  max_length: 128
+  prompt_template: "Question: {question}\nAnswer:"
+
+# Training Configuration
+training:
+  num_epochs: 1
+  batch_size: 8
+  learning_rate: 1e-4
+  weight_decay: 0.01
+  warmup_steps: 0
+  scheduler_type: "linear"
+  gradient_accumulation_steps: 1
+  mixed_precision: true  # Use automatic mixed precision (AMP)
+  shuffle: true
+
+# Evaluation Configuration
+evaluation:
+  num_samples: 50  # Number of samples to evaluate
+  max_new_tokens: 30
+  batch_size: 1
+
+# Logging Configuration
+logging:
+  log_interval: 10  # Log every N batches
+  save_path: "./checkpoints/qwen_coconut"
+  
+# Random Seed
+seed: 42
+
