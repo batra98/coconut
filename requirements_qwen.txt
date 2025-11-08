@@ -1,0 +1,30 @@
+# Qwen 2.5-3B Coconut Fine-tuning Requirements
+# Additional dependencies for Qwen model integration with LoRA and mixed precision training
+
+# Core dependencies (already in requirements.txt)
+torch>=2.5.1
+transformers>=4.51.1
+datasets>=3.1.0
+tqdm>=4.67.0
+
+# LoRA and Parameter-Efficient Fine-Tuning
+peft>=0.13.0
+
+# Efficient Training
+accelerate>=0.34.0
+bitsandbytes>=0.44.0  # For 8-bit optimization (optional but recommended)
+
+# Vision support (if needed for multimodal tasks)
+torchvision>=0.20.0
+
+# Additional utilities
+sentencepiece>=0.2.0  # For Qwen tokenizer
+protobuf>=3.20.0  # Required by sentencepiece
+
+# Optional: Logging and monitoring
+# wandb>=0.18.7  # Already in main requirements.txt
+
+# Installation note:
+# For CUDA 12.1 support, install with:
+# pip install -r requirements_qwen.txt --extra-index-url https://download.pytorch.org/whl/cu121
+
