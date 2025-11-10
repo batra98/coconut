@@ -43,6 +43,10 @@ def load_base_model(model_name, torch_dtype=torch.float16, device_map="auto"):
     Returns:
         AutoModelForCausalLM: Loaded base model
     """
+    # Force single GPU to avoid multi-GPU device conflicts
+    if device_map == "auto" and torch.cuda.is_available():
+        device_map = {"": 0}  # Force everything to cuda:0
+    
     base_model = AutoModelForCausalLM.from_pretrained(
         model_name,
         device_map=device_map,

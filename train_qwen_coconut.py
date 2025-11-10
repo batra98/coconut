@@ -46,7 +46,7 @@ def parse_args():
                         help="Dataset name")
     parser.add_argument("--max_length", type=int, default=128,
                         help="Maximum sequence length")
-    parser.add_argument("--batch_size", type=int, default=8,
+    parser.add_argument("--batch_size", type=int, default=4,
                         help="Training batch size")
     
     # Training arguments

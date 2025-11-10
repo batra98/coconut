@@ -42,8 +42,20 @@ def check_answer_match(generated_text, ground_truth):
     Returns:
         bool: True if answer is correct
     """
-    # Simple substring matching
-    return ground_truth.strip() in generated_text.strip()
+    import re
+    
+    # Extract final numerical answer from ground truth (format: "#### 123")
+    gt_match = re.search(r'####\s*(-?\d+(?:,\d+)*(?:\.\d+)?)', ground_truth)
+    if gt_match:
+        gt_answer = gt_match.group(1).replace(',', '')
+    else:
+        # Fallback: just use the ground truth as-is
+        gt_answer = ground_truth.strip()
+    
+    # Check if the numerical answer appears in generated text
+    # Look for the number with or without commas
+    gen_text_clean = generated_text.replace(',', '')
+    return gt_answer in gen_text_clean or gt_answer in generated_text
 
 
 def evaluate_model(
@@ -80,7 +92,7 @@ def evaluate_model(
     # Iterate through examples
     iterator = tqdm(eval_dataset, desc="Evaluating") if verbose else eval_dataset
     
-    for example in iterator:
+    for idx, example in enumerate(iterator):
         # Prepare input
         input_ids = torch.tensor(example["input_ids"]).unsqueeze(0).to(device)
         attention_mask = torch.tensor(example["attention_mask"]).unsqueeze(0).to(device)
@@ -96,6 +108,13 @@ def evaluate_model(
         
         # Decode generated text
         generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+        
+        # Debug: print first 3 examples
+        if verbose and idx < 3:
+            print(f"\n--- Example {idx+1} ---")
+            print(f"Question: {example['question'][:100]}...")
+            print(f"Generated: {generated_text[-100:]}")
+            print(f"Ground truth: {example['answer'][:100]}...")
         
         # Check if correct
         if check_answer_match(generated_text, example["answer"]):
