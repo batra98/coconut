@@ -42,9 +42,9 @@ model.load_state_dict(checkpoint['model_state_dict'])
 print(f"Loaded from epoch {checkpoint['epoch']}, loss: {checkpoint['loss']:.4f}")
 
 print("Loading dataset...")
-dataset, _ = load_and_prepare_data('gsm8k', 'train', tokenizer, 64, 2, False)
+dataset, _ = load_and_prepare_data('gsm8k', 'test', tokenizer, 64, 2, False)
 
 print("Evaluating...")
-results = evaluate_and_report(model, dataset, tokenizer, 10, 50, device)
+results = evaluate_and_report(model, dataset, tokenizer, 100, 100, device)
 print(f'\nFinal Accuracy: {results["accuracy"]:.4f}')
 
