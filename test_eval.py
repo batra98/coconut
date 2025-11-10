@@ -1,9 +1,14 @@
 """Quick evaluation test script"""
 import torch
+import gc
 from qwen_model import initialize_qwen_coconut_model
 from qwen_data import load_and_prepare_data
 from qwen_evaluator import evaluate_and_report
 from qwen_utils import load_checkpoint
+
+# Clear GPU cache
+torch.cuda.empty_cache()
+gc.collect()
 
 device = 'cuda'
 checkpoint_path = './checkpoints/qwen_coconut_5epochs_20251109_205836/final_checkpoint.pt'
@@ -18,6 +23,11 @@ lora_config = {
     'task_type': 'CAUSAL_LM'
 }
 
+# Load checkpoint state first (without loading full model twice)
+print(f"Loading checkpoint from {checkpoint_path}...")
+checkpoint = torch.load(checkpoint_path, map_location='cpu')  # Load to CPU first
+
+# Initialize model
 model, tokenizer, _ = initialize_qwen_coconut_model(
     'Qwen/Qwen2.5-3B-Instruct', 
     '<|latent|>', 
@@ -26,8 +36,10 @@ model, tokenizer, _ = initialize_qwen_coconut_model(
     device
 )
 
-print(f"Loading checkpoint from {checkpoint_path}...")
-model, _, _ = load_checkpoint(model, checkpoint_path, device)
+# Load weights
+print("Loading checkpoint weights...")
+model.load_state_dict(checkpoint['model_state_dict'])
+print(f"Loaded from epoch {checkpoint['epoch']}, loss: {checkpoint['loss']:.4f}")
 
 print("Loading dataset...")
 dataset, _ = load_and_prepare_data('gsm8k', 'train', tokenizer, 64, 2, False)
