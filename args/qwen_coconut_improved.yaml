@@ -1,0 +1,74 @@
+# Improved Qwen 2.5-3B Coconut Fine-tuning Configuration
+# Based on analysis of low accuracy issues
+
+# Model Configuration
+model:
+  name: "Qwen/Qwen2.5-3B-Instruct"
+  torch_dtype: "float16"  # Use FP16 for faster training
+  device_map: "auto"  # Automatically use GPU if available
+
+# Latent Token Configuration
+latent:
+  token: "<|latent|>"
+
+# LoRA Configuration
+lora:
+  r: 16  # Increased from 8 for more capacity
+  alpha: 32
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]  # Added k_proj and o_proj
+  dropout: 0.05
+  bias: "none"
+  task_type: "CAUSAL_LM"
+
+# Dataset Configuration
+dataset:
+  name: "gsm8k"
+  subset: "main"
+  split: "train"
+  max_length: 512  # INCREASED from 128 to fit full reasoning chains
+  prompt_template: "Question: {question}\nAnswer:"
+
+# Training Configuration
+training:
+  num_epochs: 3  # REDUCED from 10 to prevent overfitting
+  batch_size: 4  # Reduced due to longer sequences
+  learning_rate: 5e-5  # Slightly lower for stability
+  weight_decay: 0.01
+  warmup_steps: 100  # Added warmup
+  scheduler_type: "cosine"  # Changed to cosine for better convergence
+  gradient_accumulation_steps: 2  # Effective batch size = 8
+  mixed_precision: true  # Use automatic mixed precision (AMP)
+  shuffle: true
+  max_grad_norm: 1.0  # Gradient clipping
+
+# Evaluation Configuration
+evaluation:
+  num_samples: 100  # Increased for better assessment
+  max_new_tokens: 200  # INCREASED from 30 to allow full answer generation
+  batch_size: 1
+  do_sample: false  # Use greedy decoding for consistency
+  temperature: 1.0
+  top_p: 0.9
+
+# Logging Configuration
+logging:
+  log_interval: 10  # Log every N batches
+  save_path: "./checkpoints/qwen_coconut_improved"
+  save_every_epoch: true  # Save checkpoint after each epoch
+  
+# Random Seed
+seed: 42
+
+# Notes:
+# Key changes from original configuration:
+# 1. max_length: 128 -> 512 (critical for GSM8K)
+# 2. max_new_tokens: 30 -> 200 (critical for evaluation)
+# 3. num_epochs: 10 -> 3 (prevent overfitting)
+# 4. batch_size: 8 -> 4 (accommodate longer sequences)
+# 5. Added gradient_accumulation_steps: 2
+# 6. Added warmup_steps: 100
+# 7. Changed scheduler: linear -> cosine
+# 8. Increased LoRA rank: 8 -> 16
+# 9. Added more target_modules for LoRA
+
+
