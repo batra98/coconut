@@ -11,6 +11,7 @@ cot: True
 no_thoughts: False
 no_cot: False
 grpo: False
+soft_thinking: False
 
 c_thought: 0
 epochs_per_stage: 1
