@@ -34,6 +34,16 @@ class SoftThinking:
         synced_gpus=False,
         eos_token_id=None,
     ):
+        """Generate tokens using soft concept embeddings.
+        
+        Args:
+            cold_stop_threshold: Entropy threshold for Cold Stop (0.0 to 1.0, default 0.1).
+                When normalized entropy falls below this, increment low-entropy counter.
+            cold_stop_patience: Consecutive low-entropy steps before stopping (default 2).
+                Stops generation if entropy is low for this many consecutive steps.
+            temperature: Softmax temperature for probability computation (default 1.0).
+                Lower values make the distribution sharper, higher make it softer.
+        """
         # Determine base model and embedding
         if hasattr(model, "base_causallm") and hasattr(model, "embedding"):
             base_model = model.base_causallm

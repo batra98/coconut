@@ -472,6 +472,9 @@ def main():
                         attention,
                         max_new_tokens=max_new_tokens,
                         device=local_rank,
+                        cold_stop_threshold=getattr(configs, "soft_thinking_cold_stop_threshold", 0.1),
+                        cold_stop_patience=getattr(configs, "soft_thinking_cold_stop_patience", 2),
+                        temperature=getattr(configs, "soft_thinking_temperature", 1.0),
                         eos_token_id=tokenizer.eos_token_id,
                     )
                 else:
