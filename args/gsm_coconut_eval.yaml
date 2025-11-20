@@ -11,6 +11,10 @@ cot: False
 no_thoughts: False
 no_cot: False
 grpo: False
+soft_thinking: False
+soft_thinking_cold_stop_threshold: !!float "0.1"
+soft_thinking_cold_stop_patience: 2
+soft_thinking_temperature: !!float "1.0"
 
 c_thought: 2
 epochs_per_stage: 3
