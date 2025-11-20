@@ -1,0 +1,33 @@
+# Soft Thinking CoT Evaluation Config
+project: coconut
+save_path: ./results
+name: gsm-cot-soft-thinking
+
+only_eval: True
+
+# Model architecture
+coconut: False
+cot: True
+no_thoughts: False
+no_cot: False
+
+# Soft Thinking settings
+soft_thinking: True
+soft_thinking_cold_stop_threshold: 0.1
+soft_thinking_cold_stop_patience: 2
+soft_thinking_temperature: 1.0
+
+# Model loading
+model_id: openai-community/gpt2
+load_model_path: batch_size_16/gsm-cot/checkpoint_22
+seed: 0
+bf16: false
+
+# Data paths
+train_path: data/gsm_train.json
+val_path: data/gsm_valid.json
+batch_size_training: 1
+debug: False
+num_epochs: 1
+lr: !!float "1e-4"
+weight_decay: 0.01

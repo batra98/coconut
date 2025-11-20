@@ -1,0 +1,33 @@
+# Soft Thinking Coconut Evaluation Config
+project: coconut
+save_path: ./results
+name: gsm-coconut-soft-thinking
+
+only_eval: True
+
+# Model architecture
+coconut: True
+cot: False
+no_thoughts: False
+no_cot: False
+
+# Soft Thinking settings (inference-time only)
+soft_thinking: True
+soft_thinking_cold_stop_threshold: 0.1    # Stop if entropy falls below this
+soft_thinking_cold_stop_patience: 2       # Consecutive low-entropy steps before stopping
+soft_thinking_temperature: 1.0            # Softmax temperature (1.0 = standard)
+
+# Model loading
+model_id: openai-community/gpt2
+load_model_path: batch_size_16/gsm-coconut/checkpoint_23
+seed: 0
+bf16: false
+
+# Data paths
+train_path: data/gsm_train.json
+val_path: data/gsm_valid.json
+batch_size_training: 1
+debug: False
+num_epochs: 1
+lr: !!float "1e-4"
+weight_decay: 0.01
