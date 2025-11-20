@@ -10,6 +10,7 @@ coconut: True
 cot: False
 no_thoughts: False
 no_cot: False
+grpo: False
 
 # Soft Thinking settings (inference-time only)
 soft_thinking: True
@@ -21,11 +22,13 @@ soft_thinking_temperature: 1.0            # Softmax temperature (1.0 = standard)
 model_id: openai-community/gpt2
 load_model_path: batch_size_16/gsm-coconut/checkpoint_23
 seed: 0
+resume: 15
 bf16: false
 
 # Data paths
 train_path: data/gsm_train.json
-val_path: data/gsm_valid.json
+val_path: ddata/gsm_test.json
+reset_optimizer: True
 batch_size_training: 1
 debug: False
 num_epochs: 1

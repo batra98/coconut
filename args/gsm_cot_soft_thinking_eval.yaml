@@ -10,12 +10,21 @@ coconut: False
 cot: True
 no_thoughts: False
 no_cot: False
+grpo: False
+
+c_thought: 0
+epochs_per_stage: 1
+max_latent_stage: 0
+pad_latent_to_max: True
 
 # Soft Thinking settings
 soft_thinking: True
 soft_thinking_cold_stop_threshold: 0.1
 soft_thinking_cold_stop_patience: 2
 soft_thinking_temperature: 1.0
+
+save_only_improve: True
+uniform_prob: 0.0
 
 # Model loading
 model_id: openai-community/gpt2
