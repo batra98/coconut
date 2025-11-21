@@ -27,10 +27,19 @@ bf16: false
 
 # Data paths
 train_path: data/gsm_train.json
-val_path: ddata/gsm_test.json
+val_path: data/gsm_test.json
 reset_optimizer: True
 batch_size_training: 1
 debug: False
-num_epochs: 1
+num_epochs: 25
 lr: !!float "1e-4"
 weight_decay: 0.01
+
+c_thought: 2
+epochs_per_stage: 3
+max_latent_stage: 3
+pad_latent_to_max: True
+
+save_only_improve: False
+uniform_prob: 0.0
+gradient_accumulation_steps: 1

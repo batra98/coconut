@@ -30,6 +30,7 @@ uniform_prob: 0.0
 model_id: openai-community/gpt2
 load_model_path: batch_size_16/gsm-cot/checkpoint_22
 seed: 0
+resume: 0
 bf16: false
 
 # Data paths
@@ -40,3 +41,5 @@ debug: False
 num_epochs: 1
 lr: !!float "1e-4"
 weight_decay: 0.01
+reset_optimizer: False
+gradient_accumulation_steps: 1
