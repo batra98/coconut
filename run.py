@@ -16,6 +16,7 @@ from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 from transformers.models.gpt2.modeling_gpt2 import GPT2Block
 from transformers.models.qwen2.modeling_qwen2 import Qwen2DecoderLayer
+from peft import get_peft_model, LoraConfig, TaskType
 
 from coconut import Coconut
 from dataset import (
@@ -166,6 +167,17 @@ def main():
 
     if configs.load_model_path != "None" and not loaded:
         print(model.load_state_dict(saved_weights, strict=False))
+
+    if hasattr(configs, "lora") and configs.lora:
+        peft_config = LoraConfig(
+            task_type=TaskType.CAUSAL_LM,
+            inference_mode=False,
+            r=configs.lora_r,
+            lora_alpha=configs.lora_alpha,
+            lora_dropout=configs.lora_dropout,
+        )
+        model = get_peft_model(model, peft_config)
+        model.print_trainable_parameters()
 
     print(f"Running FSDP on rank = {rank}, world size = {world_size}")
     # model = model.to(local_rank) # Removed to avoid OOM. FSDP will handle sharding from CPU.
