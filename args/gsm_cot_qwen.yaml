@@ -27,9 +27,9 @@ bf16: true
 train_path: data/gsm_train.json
 val_path: data/gsm_valid.json
 reset_optimizer: False
-batch_size_training: 8
+batch_size_training: 4
 debug: False
-gradient_accumulation_steps: 4
+gradient_accumulation_steps: 8
 num_epochs: 25
 lr: !!float "1e-4"
 weight_decay: 0.01
