@@ -168,7 +168,7 @@ def main():
         print(model.load_state_dict(saved_weights, strict=False))
 
     print(f"Running FSDP on rank = {rank}, world size = {world_size}")
-    model = model.to(local_rank)
+    # model = model.to(local_rank) # Removed to avoid OOM. FSDP will handle sharding from CPU.
 
     llama_auto_wrap_policy = functools.partial(
         transformer_auto_wrap_policy,
@@ -180,7 +180,7 @@ def main():
     )
 
     if configs.bf16:
-        model.to(torch.bfloat16)
+        model = model.to(torch.bfloat16)
 
     # if only eval, use ddp (to avoid bugs in fsdp)
     if configs.only_eval:
