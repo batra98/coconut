@@ -168,6 +168,10 @@ def main():
     if configs.load_model_path != "None" and not loaded:
         print(model.load_state_dict(saved_weights, strict=False))
 
+    if hasattr(configs, "gradient_checkpointing") and configs.gradient_checkpointing:
+        model.gradient_checkpointing_enable()
+        model.config.use_cache = False # Required for gradient checkpointing
+
     if hasattr(configs, "lora") and configs.lora:
         peft_config = LoraConfig(
             task_type=TaskType.CAUSAL_LM,
@@ -295,7 +299,7 @@ def main():
 
             train_dataloader = torch.utils.data.DataLoader(
                 dataset_train,
-                num_workers=1,
+                num_workers=4,
                 shuffle=False,
                 pin_memory=True,
                 batch_size=configs.batch_size_training,
@@ -318,7 +322,7 @@ def main():
 
             valid_loss_dataloader = torch.utils.data.DataLoader(
                 dataset_loss_val,
-                num_workers=1,
+                num_workers=4,
                 shuffle=False,
                 pin_memory=True,
                 batch_size=configs.batch_size_training,
