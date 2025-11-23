@@ -15,6 +15,7 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 from transformers.models.gpt2.modeling_gpt2 import GPT2Block
+from transformers.models.qwen2.modeling_qwen2 import Qwen2DecoderLayer
 
 from coconut import Coconut
 from dataset import (
@@ -173,7 +174,8 @@ def main():
         transformer_auto_wrap_policy,
         transformer_layer_cls={
             # GPT2Block,       # for GPT2, we don't need to shard layers (it becomes DDP)
-            LlamaDecoderLayer  # only shard llama's layers.
+            LlamaDecoderLayer,  # only shard llama's layers.
+            Qwen2DecoderLayer,
         },
     )
 
