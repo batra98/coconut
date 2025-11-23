@@ -1,6 +1,6 @@
 # need 4 gpus
 
-project: coconut
+project: coconut-qwen
 save_path: /nobackup/gaurav/qwen/
 name: gsm-coconut-qwen
 
