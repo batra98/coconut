@@ -200,7 +200,10 @@ def main():
 
     else:
         parallel_model = FSDP(
-            model, auto_wrap_policy=llama_auto_wrap_policy, device_id=local_rank
+            model,
+            auto_wrap_policy=llama_auto_wrap_policy,
+            device_id=local_rank,
+            use_orig_params=True,  # Required for LoRA (mixed requires_grad)
         )
 
     del model
