@@ -1,7 +1,7 @@
 # need 4 gpus
 
 project: coconut-qwen
-save_path: /nobackup/gaurav/qwen/
+save_path: /nobackup/gaurav/qwen-1.5b/
 name: gsm-coconut-qwen
 
 only_eval: False
@@ -19,19 +19,17 @@ pad_latent_to_max: True
 
 save_only_improve: False
 uniform_prob: 0.0
-model_id: Qwen/Qwen2.5-3B
-# Pointing to the expected checkpoint from the CoT run.
-# User needs to update this path after running the CoT training.
-load_model_path: /nobackup/gaurav/qwen/gsm-cot-qwen/checkpoint_25
+model_id: Qwen/Qwen2.5-1.5B
+load_model_path: None # Update this after CoT training: /nobackup/gaurav/qwen-1.5b/gsm-cot-qwen/best_checkpointg to the expected checkpoint from the CoT run.
 seed: 0
 resume: 3
 bf16: true
 train_path: data/gsm_train.json
 val_path: data/gsm_valid.json
 reset_optimizer: True
-batch_size_training: 4
+batch_size_training: 8
 debug: False
-gradient_accumulation_steps: 8
+gradient_accumulation_steps: 4
 num_epochs: 25
 lr: !!float "1e-4"
 weight_decay: 0.01
