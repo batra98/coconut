@@ -463,7 +463,11 @@ def main():
         with torch.no_grad():
             # Disable gradient checkpointing for generation (it breaks embedding layer)
             if hasattr(configs, "gradient_checkpointing") and configs.gradient_checkpointing:
-                parallel_model.module.gradient_checkpointing_disable()
+                # For PEFT models, need to disable on base_model
+                if hasattr(parallel_model.module, 'base_model'):
+                    parallel_model.module.base_model.gradient_checkpointing_disable()
+                else:
+                    parallel_model.module.gradient_checkpointing_disable()
             
             parallel_model.module.eval()
             for idx, batch in enumerate(valid_gen_dataloader):
