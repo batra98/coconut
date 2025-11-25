@@ -22,7 +22,7 @@ uniform_prob: 0.0
 model_id: Qwen/Qwen2.5-0.5B
 load_model_path: None # Update after CoT: /nobackup/gaurav/qwen-0.5b/gsm-cot-qwen/best_checkpoint
 seed: 0
-resume: 0
+resume: 3
 bf16: true
 train_path: data/gsm_train.json
 val_path: data/gsm_valid.json

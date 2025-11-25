@@ -168,10 +168,6 @@ def main():
     if configs.load_model_path != "None" and not loaded:
         print(model.load_state_dict(saved_weights, strict=False))
 
-    if hasattr(configs, "gradient_checkpointing") and configs.gradient_checkpointing:
-        model.gradient_checkpointing_enable()
-        model.config.use_cache = False # Required for gradient checkpointing
-
     if hasattr(configs, "lora") and configs.lora:
         peft_config = LoraConfig(
             task_type=TaskType.CAUSAL_LM,
@@ -461,14 +457,6 @@ def main():
         )
 
         with torch.no_grad():
-            # Disable gradient checkpointing for generation (it breaks embedding layer)
-            if hasattr(configs, "gradient_checkpointing") and configs.gradient_checkpointing:
-                # For PEFT models, need to disable on base_model
-                if hasattr(parallel_model.module, 'base_model'):
-                    parallel_model.module.base_model.gradient_checkpointing_disable()
-                else:
-                    parallel_model.module.gradient_checkpointing_disable()
-            
             parallel_model.module.eval()
             for idx, batch in enumerate(valid_gen_dataloader):
                 test_idx = batch["idx"][0]
