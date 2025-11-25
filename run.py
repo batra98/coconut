@@ -476,11 +476,14 @@ def main():
                 total += 1
 
                 # synced_gpus=True in FSDP mode, as we need to keep # forward pass the same on each device
-                outputs = parallel_model.module.generate(
-                    **batch,
-                    max_new_tokens=max_new_tokens,
-                    synced_gpus=not configs.only_eval,
-                )
+                # Use summon_full_params to properly unflatten FSDP weights for generation
+                from torch.distributed.fsdp import FullyShardedDataParallel as FSDP, StateDictType, FullStateDictConfig
+                with FSDP.summon_full_params(parallel_model, writeback=False):
+                    outputs = parallel_model.module.generate(
+                        **batch,
+                        max_new_tokens=max_new_tokens,
+                        synced_gpus=not configs.only_eval,
+                    )
 
                 text_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
                 answer_output = text_output.split("#")[-1].replace(",", "").strip()
