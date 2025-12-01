@@ -196,8 +196,9 @@ class Coconut(nn.Module):
 
         return Outputs(loss=loss, inputs_embeds=inputs_embeds, logits=logits)
 
-    def train(self):
-        self.base_causallm.train()
+    def train(self, mode=True):
+        self.base_causallm.train(mode)
+        return super().train(mode)
 
     def eval(self):
         self.base_causallm.eval()
