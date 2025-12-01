@@ -35,6 +35,10 @@ class Coconut(nn.Module):
             self.embedding = self.base_causallm.transformer.get_input_embeddings()
         else:
             self.embedding = self.base_causallm.get_input_embeddings()
+    
+    def prepare_inputs_for_generation(self, *args, **kwargs):
+        """Delegate to the underlying model for PEFT compatibility."""
+        return self.base_causallm.prepare_inputs_for_generation(*args, **kwargs)
 
     def forward(self, input_ids, attention_mask, labels, position_ids, **kwargs):
 
