@@ -1,0 +1,41 @@
+# Test config for Coconut - runs quickly for verification
+# Usage: python run.py args/gsm_coconut_qwen_test.yaml
+
+project: coconut-qwen
+save_path: /nobackup/gaurav/qwen-0.5b-test/
+name: gsm-coconut-qwen-test
+
+only_eval: False
+
+coconut: True
+cot: False
+no_thoughts: False
+no_cot: False
+grpo: False
+
+c_thought: 2
+epochs_per_stage: 1  # Reduced for testing
+max_latent_stage: 1  # Reduced for testing (only stage 0 and 1)
+pad_latent_to_max: True
+
+save_only_improve: False
+uniform_prob: 0.0
+model_id: Qwen/Qwen2.5-0.5B
+load_model_path: /nobackup/gaurav/qwen-0.5b/gsm-cot-qwen/checkpoint_11
+seed: 0
+resume: 0
+bf16: true
+train_path: data/gsm_train.json
+val_path: data/gsm_valid.json
+reset_optimizer: True
+batch_size_training: 4
+debug: True  # Uses small dataset (32 train, 100 val)
+gradient_accumulation_steps: 8
+num_epochs: 3  # Just enough to test curriculum (1 epoch per stage for 3 stages)
+lr: !!float "1e-4"
+weight_decay: 0.01
+
+lora: True
+lora_r: 8
+lora_alpha: 32
+lora_dropout: 0.1
