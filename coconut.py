@@ -44,6 +44,16 @@ class Coconut(nn.Module):
     def config(self):
         """Delegate to the underlying model's config for PEFT compatibility."""
         return self.base_causallm.config
+    
+    @property
+    def generation_config(self):
+        """Delegate to the underlying model's generation_config for PEFT compatibility."""
+        return self.base_causallm.generation_config
+    
+    @generation_config.setter
+    def generation_config(self, value):
+        """Allow setting generation_config for PEFT compatibility."""
+        self.base_causallm.generation_config = value
 
     def forward(self, input_ids, attention_mask, labels, position_ids, **kwargs):
 
