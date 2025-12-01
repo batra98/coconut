@@ -39,6 +39,11 @@ class Coconut(nn.Module):
     def prepare_inputs_for_generation(self, *args, **kwargs):
         """Delegate to the underlying model for PEFT compatibility."""
         return self.base_causallm.prepare_inputs_for_generation(*args, **kwargs)
+    
+    @property
+    def config(self):
+        """Delegate to the underlying model's config for PEFT compatibility."""
+        return self.base_causallm.config
 
     def forward(self, input_ids, attention_mask, labels, position_ids, **kwargs):
 
