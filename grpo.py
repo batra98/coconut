@@ -177,6 +177,29 @@ def reward_function(prompts, completions, *, answer, completion_ids=None, **kwar
         
         return rewards
 
+from transformers import TrainerCallback
+
+class CustomWandbCallback(TrainerCallback):
+    """
+    Custom callback to log metrics to an existing wandb run.
+    """
+    def __init__(self, wandb_run):
+        self.wandb_run = wandb_run
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if self.wandb_run and logs:
+            # Filter out non-numeric values and add grpo/ prefix
+            grpo_metrics = {}
+            for k, v in logs.items():
+                if isinstance(v, (int, float)) and k not in ['epoch', 'step']:
+                    grpo_metrics[f"grpo/{k}"] = v
+
+            # Log step if available
+            if 'step' in logs:
+                grpo_metrics['grpo/step'] = logs['step']
+
+            self.wandb_run.log(grpo_metrics)
+
 def train_grpo_style(
     configs: Config,
     epoch: int,
@@ -285,12 +308,16 @@ def train_grpo_style(
             print(f"Initializing GRPO trainer for epoch {epoch + 1}")
             print(f"Training on {len(train_prompts)} prompts with {grpo_config.num_generations} generations each")
         
+        callbacks = []
+        if wandb_run and rank == 0:
+            callbacks.append(CustomWandbCallback(wandb_run))
         grpo_trainer = GRPOTrainer(
             model=unwrapped_model,
             reward_funcs=reward_function,
             args=grpo_config,
             train_dataset=grpo_dataset,
             processing_class=tokenizer,
+            callbacks=callbacks,
         )
         
         # Train
