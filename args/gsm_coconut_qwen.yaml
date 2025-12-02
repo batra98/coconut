@@ -22,7 +22,7 @@ uniform_prob: 0.0
 model_id: Qwen/Qwen2.5-0.5B
 load_model_path: /nobackup/gaurav/qwen-0.5b/gsm-cot-qwen/checkpoint_11
 seed: 0
-resume: 2
+resume: 0
 bf16: true
 train_path: data/gsm_train.json
 val_path: data/gsm_valid.json
@@ -31,7 +31,7 @@ batch_size_training: 4
 debug: False
 gradient_accumulation_steps: 8
 num_epochs: 25
-lr: !!float "5e-5"
+lr: !!float "1e-5"
 weight_decay: 0.01
 
 lora: True
