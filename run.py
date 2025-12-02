@@ -384,6 +384,8 @@ def main():
                 if (step + 1) % configs.gradient_accumulation_steps == 0 or step == len(
                     train_dataloader
                 ) - 1:
+                    # Clip gradients to prevent explosion (especially important for Coconut)
+                    torch.nn.utils.clip_grad_norm_(parallel_model.parameters(), max_norm=1.0)
                     optimizer.step()
                     optimizer.zero_grad()
                     pbar.update(1)
