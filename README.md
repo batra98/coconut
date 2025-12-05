@@ -207,90 +207,14 @@ git clone https://huggingface.co/batra98/gsm-coconut
 # load_model_path: gsm-cot-checkpoint-22/checkpoint_22
 ```
 
-### 2. GRPO Training (Reinforcement Learning)
+### 2. Other Experiments
 
-Branch: `sra/grpo`
+We have explored several extensions to the base Coconut model. Please check the following branches for details:
 
-We implemented Group Relative Policy Optimization to fine-tune Coconut using reinforcement learning with custom reward functions.
-
-```bash
-torchrun --nnodes 1 --nproc_per_node 4 run_grpo.py args/gsm_grpo.yaml
-```
-
-**Key Features:**
-- Custom reward function combining answer correctness (weight: 1.0) and format adherence (weight: 0.1)
-- Group-based reward scaling for stable training
-- Generates 8 completions per prompt for robust policy updates
-- Integrated with TRL's `GRPOTrainer`
-
-**Reward Function:**
-```python
-reward = 1.0 * correct_answer_reward + 0.1 * format_reward
-```
-
-The format reward encourages the model to maintain proper reasoning structure with `<<computation=result>>` format.
-
-### 3. Pass@K Evaluation
-
-**Branch: `sra/pass_k`** - For vanilla CoT models  
-**Branch: `sra/pass_k_coconut`** - For Coconut models with continuous thoughts
-
-Standard greedy decoding only generates one answer. Pass@K evaluation generates K diverse samples and measures if any of them are correct - a more robust metric for reasoning tasks.
-
-**Implementation:**
-- Generates 20 samples per problem with temperature sampling (temperature=0.7, top_p=0.95)
-- Checks if at least one sample produces the correct answer
-- Reports Pass@1 (greedy), Pass@20 (sampling), and CoT match metrics
-
-**Key Features:**
-- `sra/pass_k`: Implements Pass@20 evaluation for vanilla models
-- `sra/pass_k_coconut`: Extends Coconut's `generate()` method with sampling support
-  - Adds `_sample_token()` method with temperature and nucleus (top-p) sampling
-  - Enables diverse output generation while maintaining quality
-  - Backward compatible with greedy decoding
-
-**Usage:**
-```bash
-# For Coconut models - checkout sra/pass_k_coconut branch
-git checkout sra/pass_k_coconut
-
-# Run evaluation with Pass@20
-torchrun \
-  --nnodes 5 \
-  --nproc_per_node 8 \
-  --node_rank 0 \
-  --master_addr instgpu-01.cs.wisc.edu \
-  --master_port 29500 \
-  run.py args/gsm_coconut_eval.yaml
-```
-
-**Metrics Reported:**
-- `eval/acc` - Standard greedy accuracy
-- `eval/cot_em` - Chain-of-thought exact match
-- `eval/pass@20` - Success rate with 20 samples per problem
-
-### 4. Qwen 2.5-3B Experiments
-
-Branch: `qwen2.5-3B`
-
-We adapted Coconut to work with Qwen 2.5-3B, a more capable base model than GPT-2.
-
-**Changes:**
-- Modified model loading to support Qwen architecture
-- Adjusted tokenizer handling for Qwen's vocabulary
-- Updated attention mechanisms and position embeddings
-
-### 5. Soft Thinking Experiments
-
-Branch: `soft-thinking`
-
-Explored alternative training strategies with smoothing and continuous thought generation.
-
-**Key Experiments:**
-- Soft attention mechanisms for thought tokens
-- Smoothed latent representations
-- Alternative loss functions for continuous thoughts
-- Temperature-based smoothing during training
+- **GRPO Training**: `sra/moun`
+- **Pass@K Evaluation**: `sra/pass_k` and `sra/pass_k_coconut`
+- **Qwen 2.5 Support**: `feature/qwen-support` and `qwen2.5-3B`
+- **Soft Thinking**: `soft-thinking2`
 
 ---
 
