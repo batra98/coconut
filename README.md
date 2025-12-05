@@ -282,15 +282,22 @@ We adapted Coconut to work with Qwen 2.5-3B, a more capable base model than GPT-
 
 ### 5. Soft Thinking Experiments
 
-Branch: `soft-thinking`
+Branch: `soft-thinking2`
 
-Explored alternative training strategies with smoothing and continuous thought generation.
+We explored "Soft Thinking" - a technique to dynamically control the length of latent reasoning chains during inference based on entropy.
 
-**Key Experiments:**
-- Soft attention mechanisms for thought tokens
-- Smoothed latent representations
-- Alternative loss functions for continuous thoughts
-- Temperature-based smoothing during training
+**To run Soft Thinking evaluation:**
+
+```bash
+torchrun --nnodes 1 --nproc_per_node 4 run.py args/gsm_coconut_soft_thinking_eval.yaml
+```
+
+**Key Features:**
+- **Dynamic Halting**: Stops generating latent thoughts when the model is "confident" (low entropy).
+- **Entropy-based Control**: Monitors the entropy of the latent state distribution.
+- **Configurable Parameters**:
+  - `soft_thinking_cold_stop_threshold`: Entropy threshold for stopping (e.g., 0.1).
+  - `soft_thinking_cold_stop_patience`: Number of consecutive low-entropy steps required.
 
 ---
 
