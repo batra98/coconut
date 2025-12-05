@@ -269,16 +269,23 @@ torchrun \
 - `eval/cot_em` - Chain-of-thought exact match
 - `eval/pass@20` - Success rate with 20 samples per problem
 
-### 4. Qwen 2.5-3B Experiments
+### 4. Qwen Experiments
 
-Branch: `qwen2.5-3B`
+Branch: `feature/qwen-support` (and `qwen2.5-3B`)
 
-We adapted Coconut to work with Qwen 2.5-3B, a more capable base model than GPT-2.
+We adapted Coconut to work with Qwen 2.5 models (tested with 0.5B and 3B).
+
+**To run Qwen 2.5-0.5B experiment:**
+
+```bash
+torchrun --nnodes 1 --nproc_per_node 4 run.py args/gsm_coconut_qwen.yaml
+```
 
 **Changes:**
 - Modified model loading to support Qwen architecture
 - Adjusted tokenizer handling for Qwen's vocabulary
 - Updated attention mechanisms and position embeddings
+- Added LoRA support for efficient fine-tuning
 
 ### 5. Soft Thinking Experiments
 
