@@ -209,19 +209,21 @@ git clone https://huggingface.co/batra98/gsm-coconut
 
 ### 2. GRPO Training (Reinforcement Learning)
 
-Branch: `sra/grpo`
+Branch: `sra/moun`
 
-We implemented Group Relative Policy Optimization to fine-tune Coconut using reinforcement learning with custom reward functions.
+We implemented Group Relative Policy Optimization (GRPO) to fine-tune models using reinforcement learning with custom reward functions.
+
+**To run GRPO training:**
 
 ```bash
 torchrun --nnodes 1 --nproc_per_node 4 run_grpo.py args/gsm_grpo.yaml
 ```
 
 **Key Features:**
-- Custom reward function combining answer correctness (weight: 1.0) and format adherence (weight: 0.1)
-- Group-based reward scaling for stable training
-- Generates 8 completions per prompt for robust policy updates
-- Integrated with TRL's `GRPOTrainer`
+- **Custom Reward Function**: Combines answer correctness (weight: 1.0) and format adherence (weight: 0.1).
+- **Group-based Normalization**: Rewards are normalized within each batch for stable training.
+- **Robust Policy Updates**: Generates 8 completions per prompt.
+- **Integrated with TRL**: Uses `GRPOTrainer` from the TRL library.
 
 **Reward Function:**
 ```python
