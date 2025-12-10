@@ -524,3 +524,48 @@ For questions about this project:
 - Email: gbatra3@wisc.edu
 
 **Note**: Wandb experiment links and final results will be added upon completion of all experiments.
+### Qwen 2.5-3B Specifics
+
+#### Training
+
+To train Coconut with Qwen 2.5-3B on GSM8K:
+
+```bash
+torchrun --nnodes 1 --nproc_per_node 4 run.py args/qwen_coconut.yaml
+```
+
+**Configuration (`args/qwen_coconut.yaml`):**
+- `lora.r`: 8 (Rank for LoRA adapters)
+- `lora.target_modules`: `["q_proj", "v_proj"]`
+- `training.batch_size`: 8
+- `training.learning_rate`: 1e-4
+
+#### Improved Training Configuration
+
+For better stability and performance, we recommend using the improved configuration:
+
+```bash
+torchrun --nnodes 1 --nproc_per_node 4 run.py args/qwen_coconut_improved.yaml
+```
+
+**Key Improvements:**
+- Increased context length (512 tokens)
+- Optimized learning rate schedule (Cosine)
+- Enhanced LoRA configuration (Rank 16, more target modules)
+- Gradient accumulation for larger effective batch sizes
+
+#### Evaluation
+
+To evaluate the trained model:
+
+```bash
+torchrun --nnodes 1 --nproc_per_node 4 run.py args/gsm_coconut_eval.yaml \
+    --load_model_path ./checkpoints/qwen_coconut/checkpoint_best
+```
+
+#### Model Architecture
+
+The implementation wraps Qwen 2.5 with Coconut's continuous thought mechanism:
+1. **Latent Tokens**: `<|latent|>` tokens are injected to represent continuous thoughts.
+2. **Continuous Reasoning**: The model processes these latent tokens to generate hidden states that guide subsequent generation.
+3. **LoRA Adapters**: Fine-tuning is applied only to LoRA adapters and the new latent token embeddings, preserving the pre-trained knowledge of Qwen 2.5.
