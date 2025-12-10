@@ -15,6 +15,8 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 from transformers.models.gpt2.modeling_gpt2 import GPT2Block
+from transformers.models.qwen2.modeling_qwen2 import Qwen2DecoderLayer
+from peft import get_peft_model, LoraConfig, TaskType
 
 from coconut import Coconut
 from dataset import (
@@ -166,19 +168,32 @@ def main():
     if configs.load_model_path != "None" and not loaded:
         print(model.load_state_dict(saved_weights, strict=False))
 
+    if hasattr(configs, "lora") and configs.lora:
+        peft_config = LoraConfig(
+            task_type=TaskType.CAUSAL_LM,
+            inference_mode=False,
+            r=configs.lora_r,
+            lora_alpha=configs.lora_alpha,
+            lora_dropout=configs.lora_dropout,
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        )
+        model = get_peft_model(model, peft_config)
+        model.print_trainable_parameters()
+
     print(f"Running FSDP on rank = {rank}, world size = {world_size}")
-    model = model.to(local_rank)
+    # model = model.to(local_rank) # Removed to avoid OOM. FSDP will handle sharding from CPU.
 
     llama_auto_wrap_policy = functools.partial(
         transformer_auto_wrap_policy,
         transformer_layer_cls={
             # GPT2Block,       # for GPT2, we don't need to shard layers (it becomes DDP)
-            LlamaDecoderLayer  # only shard llama's layers.
+            LlamaDecoderLayer,  # only shard llama's layers.
+            Qwen2DecoderLayer,
         },
     )
 
     if configs.bf16:
-        model.to(torch.bfloat16)
+        model = model.to(torch.bfloat16)
 
     # if only eval, use ddp (to avoid bugs in fsdp)
     if configs.only_eval:
@@ -186,7 +201,10 @@ def main():
 
     else:
         parallel_model = FSDP(
-            model, auto_wrap_policy=llama_auto_wrap_policy, device_id=local_rank
+            model,
+            auto_wrap_policy=llama_auto_wrap_policy,
+            device_id=local_rank,
+            use_orig_params=True,  # Required for LoRA (mixed requires_grad)
         )
 
     del model
@@ -278,7 +296,7 @@ def main():
 
             train_dataloader = torch.utils.data.DataLoader(
                 dataset_train,
-                num_workers=1,
+                num_workers=4,
                 shuffle=False,
                 pin_memory=True,
                 batch_size=configs.batch_size_training,
@@ -301,7 +319,7 @@ def main():
 
             valid_loss_dataloader = torch.utils.data.DataLoader(
                 dataset_loss_val,
-                num_workers=1,
+                num_workers=4,
                 shuffle=False,
                 pin_memory=True,
                 batch_size=configs.batch_size_training,
@@ -366,6 +384,8 @@ def main():
                 if (step + 1) % configs.gradient_accumulation_steps == 0 or step == len(
                     train_dataloader
                 ) - 1:
+                    # Clip gradients to prevent explosion (especially important for Coconut)
+                    torch.nn.utils.clip_grad_norm_(parallel_model.parameters(), max_norm=1.0)
                     optimizer.step()
                     optimizer.zero_grad()
                     pbar.update(1)
@@ -459,11 +479,13 @@ def main():
                 total += 1
 
                 # synced_gpus=True in FSDP mode, as we need to keep # forward pass the same on each device
-                outputs = parallel_model.module.generate(
-                    **batch,
-                    max_new_tokens=max_new_tokens,
-                    synced_gpus=not configs.only_eval,
-                )
+                # Use summon_full_params to properly unflatten FSDP weights for generation
+                with FSDP.summon_full_params(parallel_model, writeback=False):
+                    outputs = parallel_model.module.generate(
+                        **batch,
+                        max_new_tokens=max_new_tokens,
+                        synced_gpus=not configs.only_eval,
+                    )
 
                 text_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
                 answer_output = text_output.split("#")[-1].replace(",", "").strip()

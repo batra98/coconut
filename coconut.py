@@ -35,6 +35,25 @@ class Coconut(nn.Module):
             self.embedding = self.base_causallm.transformer.get_input_embeddings()
         else:
             self.embedding = self.base_causallm.get_input_embeddings()
+    
+    def prepare_inputs_for_generation(self, *args, **kwargs):
+        """Delegate to the underlying model for PEFT compatibility."""
+        return self.base_causallm.prepare_inputs_for_generation(*args, **kwargs)
+    
+    @property
+    def config(self):
+        """Delegate to the underlying model's config for PEFT compatibility."""
+        return self.base_causallm.config
+    
+    @property
+    def generation_config(self):
+        """Delegate to the underlying model's generation_config for PEFT compatibility."""
+        return self.base_causallm.generation_config
+    
+    @generation_config.setter
+    def generation_config(self, value):
+        """Allow setting generation_config for PEFT compatibility."""
+        self.base_causallm.generation_config = value
 
     def forward(self, input_ids, attention_mask, labels, position_ids, **kwargs):
 
@@ -192,8 +211,9 @@ class Coconut(nn.Module):
 
         return Outputs(loss=loss, inputs_embeds=inputs_embeds, logits=logits)
 
-    def train(self):
-        self.base_causallm.train()
+    def train(self, mode=True):
+        self.base_causallm.train(mode)
+        return super().train(mode)
 
     def eval(self):
         self.base_causallm.eval()

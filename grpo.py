@@ -199,7 +199,6 @@ class CustomWandbCallback(TrainerCallback):
                 grpo_metrics['grpo/step'] = logs['step']
 
             self.wandb_run.log(grpo_metrics)
-
 def train_grpo_style(
     configs: Config,
     epoch: int,

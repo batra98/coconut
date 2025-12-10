@@ -216,6 +216,36 @@ We have explored several extensions to the base Coconut model. Please check the 
 - **Qwen 2.5 Support**: `feature/qwen-support` and `qwen2.5-3B`
 - **Soft Thinking**: `soft-thinking2`
 
+### 3. Qwen 2.5 Support
+
+This branch (`feature/qwen-support`) adapts the Coconut architecture to work with **Qwen 2.5** models (specifically tested with 0.5B and 3B).
+
+#### Key Changes
+
+- **Model Loading**: Modified to support Qwen's architecture.
+- **Tokenizer**: Adjusted to handle Qwen's vocabulary and special tokens.
+- **Position Embeddings**: Updated to work with Qwen's rotary embeddings (RoPE).
+- **LoRA Support**: Added Low-Rank Adaptation (LoRA) for efficient fine-tuning of larger models.
+
+#### Usage
+
+To train a Coconut model initialized with Qwen 2.5-0.5B:
+
+```bash
+torchrun --nnodes 1 --nproc_per_node 4 run.py args/gsm_coconut_qwen.yaml
+```
+
+#### Configuration
+
+See `args/gsm_coconut_qwen.yaml` for the configuration details. Key parameters include:
+
+- `model_id`: `Qwen/Qwen2.5-0.5B`
+- `lora`: `True`
+- `lora_r`: 8
+- `lora_target_modules`: `["q_proj", "v_proj"]`
+
+---
+
 ---
 
 ## Repository Structure
