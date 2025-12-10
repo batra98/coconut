@@ -36,6 +36,7 @@ import gc
 import argparse
 import functools
 from utils import Config, set_seed
+from soft_thinking import SoftThinking
 
 
 def main():
@@ -481,12 +482,29 @@ def main():
                 # synced_gpus=True in FSDP mode, as we need to keep # forward pass the same on each device
                 # Use summon_full_params to properly unflatten FSDP weights for generation
                 with FSDP.summon_full_params(parallel_model, writeback=False):
-                    outputs = parallel_model.module.generate(
-                        **batch,
-                        max_new_tokens=max_new_tokens,
-                        synced_gpus=not configs.only_eval,
-                    )
-
+                    if getattr(configs, "soft_thinking", False):
+                        # Soft Thinking inference wrapper (training-free)
+                        # feed concept embeddings instead of discrete tokens
+                        inputs = batch.get("input_ids")
+                        attention = batch.get("attention_mask", None)
+                        outputs = SoftThinking.generate(
+                            parallel_model.module,
+                            tokenizer,
+                            inputs,
+                            attention,
+                            max_new_tokens=max_new_tokens,
+                            device=local_rank,
+                            cold_stop_threshold=getattr(configs, "soft_thinking_cold_stop_threshold", 0.1),
+                            cold_stop_patience=getattr(configs, "soft_thinking_cold_stop_patience", 2),
+                            temperature=getattr(configs, "soft_thinking_temperature", 1.0),
+                            eos_token_id=tokenizer.eos_token_id,
+                        )
+                    else:
+                        outputs = parallel_model.module.generate(
+                            **batch,
+                            max_new_tokens=max_new_tokens,
+                            synced_gpus=not configs.only_eval,
+                        )
                 text_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
                 answer_output = text_output.split("#")[-1].replace(",", "").strip()
                 cot_output = (

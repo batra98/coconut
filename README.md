@@ -1,62 +1,30 @@
 # Coconut: Training LLMs to Reason in Continuous Latent Space
 
-**CS 739: Advanced NLP Course Project**  
-*University of Wisconsin-Madison*
+This branch (`soft-thinking2`) explores **Soft Thinking** - a technique to dynamically control the length of latent reasoning chains during inference based on entropy.
 
-This repository contains our implementation and extensions of [Coconut](https://arxiv.org/abs/2412.06769) - a novel approach to training large language models to reason using continuous latent thoughts instead of discrete chain-of-thought tokens.
+## Overview
 
-![Coconut Architecture](assets/coconut.png)
+Standard Coconut uses a fixed number of latent thoughts per reasoning step. Soft Thinking allows the model to decide when it has "thought enough" by monitoring the entropy of its latent state distribution.
 
-## Team Members
+## Key Features
 
-- **Gaurav Batra** ([batra98](https://github.com/batra98))
-- **Sujan Reddy Ale** ([Sujan242](https://github.com/Sujan242))
-- **Aayush Gupta** ([AayGup](https://github.com/AayGup))
-- **Srishti Lodha** ([Srish-tii](https://github.com/Srish-tii))
+- **Dynamic Halting**: Stops generating latent thoughts when the model is "confident" (low entropy).
+- **Entropy-based Control**: Monitors the entropy of the latent state distribution.
+- **Configurable Parameters**:
+  - `soft_thinking_cold_stop_threshold`: Entropy threshold for stopping (e.g., 0.1).
+  - `soft_thinking_cold_stop_patience`: Number of consecutive low-entropy steps required.
 
-## Project Overview
+## Usage
 
-Coconut introduces a paradigm shift in how language models perform reasoning. Instead of generating explicit reasoning steps as text tokens (like Chain-of-Thought), Coconut learns to reason in a continuous latent space, leading to:
+### Running Soft Thinking Evaluation
 
-- **More efficient reasoning**: Continuous thoughts are more compact than text
-- **Better generalization**: Latent representations can capture abstract reasoning patterns
-- **Improved performance**: Achieves competitive results with fewer tokens
-
-### Our Contributions
-
-This project goes beyond replicating the original Coconut paper. We have:
-
-1. **Successfully replicated Coconut on GSM8K** - Validated the original paper's claims
-2. **Implemented GRPO training** - Applied Group Relative Policy Optimization for reinforcement learning fine-tuning
-3. **Added Pass@K evaluation** - Implemented Pass@20 metric for both vanilla CoT and Coconut models with temperature and nucleus sampling
-4. **Experimented with Qwen 2.5-3B** - Tested Coconut architecture with different base models
-5. **Soft Thinking experiments** - Explored alternative training strategies and smoothing techniques
-
----
-
-## Quick Start
-
-### Environment Setup
-
-**Option 1: Using Conda**
+To evaluate a trained Coconut model with Soft Thinking enabled:
 
 ```bash
-# Clone the repository
-git clone https://github.com/batra98/coconut.git
-cd coconut
-
-# Create conda environment
-conda create --name coconut python=3.12
-conda activate coconut
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Login to wandb for experiment tracking
-wandb login
+torchrun --nnodes 1 --nproc_per_node 4 run.py args/gsm_coconut_soft_thinking_eval.yaml
 ```
 
-**Option 2: Using uv (Faster Alternative)**
+### Configuration
 
 [uv](https://github.com/astral-sh/uv) is a fast Python package installer and resolver written in Rust.
 
@@ -356,14 +324,20 @@ Set `debug: True` in your config file to:
 ### Resuming Training
 
 Training automatically resumes from the latest checkpoint if interrupted. Manual resume:
+=======
+See `args/gsm_coconut_soft_thinking_eval.yaml` for configuration details.
+>>>>>>> soft-thinking2
 
 ```yaml
-resume: 5  # Resume from epoch 5
-load_model_path: /path/to/checkpoint_5
+soft_thinking: True
+soft_thinking_cold_stop_threshold: 0.1
+soft_thinking_cold_stop_patience: 2
+soft_thinking_temperature: 1.0
 ```
 
----
+## Other Experiments
 
+<<<<<<< HEAD
 ## Evaluation Metrics
 
 We track multiple metrics to comprehensively evaluate reasoning capabilities:
@@ -569,3 +543,40 @@ The implementation wraps Qwen 2.5 with Coconut's continuous thought mechanism:
 1. **Latent Tokens**: `<|latent|>` tokens are injected to represent continuous thoughts.
 2. **Continuous Reasoning**: The model processes these latent tokens to generate hidden states that guide subsequent generation.
 3. **LoRA Adapters**: Fine-tuning is applied only to LoRA adapters and the new latent token embeddings, preserving the pre-trained knowledge of Qwen 2.5.
+=======
+For other experiments, please check the respective branches:
+- `feature/qwen-support`: Qwen 2.5 Support
+- `sra/moun`: GRPO Training
+
+### Soft Thinking Specifics
+
+This branch (`soft-thinking2`) explores **Soft Thinking** - a technique to dynamically control the length of latent reasoning chains during inference based on entropy.
+
+#### Overview
+
+Standard Coconut uses a fixed number of latent thoughts per reasoning step. Soft Thinking allows the model to decide when it has "thought enough" by monitoring the entropy of its latent state distribution.
+
+#### Key Features
+
+- **Dynamic Halting**: Stops generating latent thoughts when the model is "confident" (low entropy).
+- **Entropy-based Control**: Monitors the entropy of the latent state distribution.
+- **Configurable Parameters**:
+  - `soft_thinking_cold_stop_threshold`: Entropy threshold for stopping (e.g., 0.1).
+  - `soft_thinking_cold_stop_patience`: Number of consecutive low-entropy steps required.
+
+#### Usage
+
+To evaluate a trained Coconut model with Soft Thinking enabled:
+
+```bash
+torchrun --nnodes 1 --nproc_per_node 4 run.py args/gsm_coconut_soft_thinking_eval.yaml
+```
+
+**Configuration (`args/gsm_coconut_soft_thinking_eval.yaml`):**
+
+```yaml
+soft_thinking: True
+soft_thinking_cold_stop_threshold: 0.1
+soft_thinking_cold_stop_patience: 2
+soft_thinking_temperature: 1.0
+```
