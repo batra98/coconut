@@ -248,7 +248,7 @@ def main():
         optimizer = None
 
     else:
-        optimizer = optim.AdamW(
+        optimizer = optim.Muon(
             parallel_model.parameters(),
             lr=configs.lr,
             weight_decay=configs.weight_decay,
@@ -331,7 +331,7 @@ def main():
             if configs.reset_optimizer:
                 del optimizer
 
-                optimizer = optim.AdamW(
+                optimizer = optim.Muon(
                     parallel_model.parameters(),
                     lr=configs.lr,
                     weight_decay=configs.weight_decay,

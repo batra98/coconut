@@ -1,5 +1,6 @@
 # Coconut: Training LLMs to Reason in Continuous Latent Space
 
+**CS 739: Advanced NLP Course Project**  
 This branch (`soft-thinking2`) explores **Soft Thinking** - a technique to dynamically control the length of latent reasoning chains during inference based on entropy.
 
 ## Overview
@@ -214,6 +215,41 @@ See `args/gsm_coconut_qwen.yaml` for the configuration details. Key parameters i
 
 ---
 
+### 4. GRPO Training
+
+This branch (`sra/moun`) implements **Group Relative Policy Optimization (GRPO)** to fine-tune Coconut models using reinforcement learning with custom reward functions.
+
+#### Overview
+
+GRPO is a reinforcement learning technique that optimizes the model's policy based on group-relative rewards. This allows us to fine-tune the model for specific objectives, such as answer correctness and reasoning format adherence, without needing a separate value network.
+
+#### Key Features
+
+- **Custom Reward Function**: Combines answer correctness (weight: 1.0) and format adherence (weight: 0.1).
+- **Group-based Normalization**: Rewards are normalized within each batch for stable training.
+- **Robust Policy Updates**: Generates multiple completions (e.g., 8) per prompt to estimate the baseline.
+- **Integrated with TRL**: Uses `GRPOTrainer` from the Transformer Reinforcement Learning (TRL) library.
+
+#### Usage
+
+To start GRPO training on GSM8K:
+
+```bash
+torchrun --nnodes 1 --nproc_per_node 4 run.py args/gsm_grpo.yaml
+```
+
+#### Configuration
+
+See `args/gsm_grpo.yaml` for configuration details. Key parameters:
+
+- `grpo`: `True`
+- `num_generations`: 8 (Number of completions per prompt)
+- `beta`: 0.01 (KL penalty)
+- `reward_weight_final_answer`: 1.0
+- `reward_weight_format`: 0.1
+
+---
+
 ---
 
 ## Repository Structure
@@ -324,18 +360,13 @@ Set `debug: True` in your config file to:
 ### Resuming Training
 
 Training automatically resumes from the latest checkpoint if interrupted. Manual resume:
-=======
-See `args/gsm_coconut_soft_thinking_eval.yaml` for configuration details.
->>>>>>> soft-thinking2
 
 ```yaml
-soft_thinking: True
-soft_thinking_cold_stop_threshold: 0.1
-soft_thinking_cold_stop_patience: 2
-soft_thinking_temperature: 1.0
+resume: 5  # Resume from epoch 5
+load_model_path: /path/to/checkpoint_5
 ```
 
-## Other Experiments
+---
 
 <<<<<<< HEAD
 ## Evaluation Metrics
@@ -543,10 +574,8 @@ The implementation wraps Qwen 2.5 with Coconut's continuous thought mechanism:
 1. **Latent Tokens**: `<|latent|>` tokens are injected to represent continuous thoughts.
 2. **Continuous Reasoning**: The model processes these latent tokens to generate hidden states that guide subsequent generation.
 3. **LoRA Adapters**: Fine-tuning is applied only to LoRA adapters and the new latent token embeddings, preserving the pre-trained knowledge of Qwen 2.5.
-=======
-For other experiments, please check the respective branches:
-- `feature/qwen-support`: Qwen 2.5 Support
-- `sra/moun`: GRPO Training
+
+---
 
 ### Soft Thinking Specifics
 
