@@ -111,6 +111,8 @@ Update `args/gsm_coconut_eval.yaml` with the best checkpoint path:
 torchrun --nnodes 1 --nproc_per_node 4 run.py args/gsm_coconut_eval.yaml
 ```
 
+**Results**: [Baseline Reproduction: CoT & Coconut on GPT-2](https://wandb.ai/gbatra3-uw-madison/coconut/reports/Baseline-Reproduction-COT-Coconut-on-GPT2---VmlldzoxNTMyNDAyNw?accessToken=n50heyl1b0iv0culet1mvwl3stu9r99n3i7zp7a5v2wwrhqidw9dukn1yz57josj) - WandB Report
+
 ---
 
 ### 2. Qwen 2.5 Experiments
@@ -148,6 +150,8 @@ torchrun --nnodes 1 --nproc_per_node 4 run.py args/qwen_3b_coconut.yaml
 - Higher gradient accumulation (4 vs 2)
 - FP16 training enabled by default
 
+**Results**: [Qwen 2.5 Experiments](https://api.wandb.ai/links/gbatra3-uw-madison/tchzutc2) - WandB Report
+
 ---
 
 ### 3. GRPO Training
@@ -177,6 +181,8 @@ torchrun --nnodes 1 --nproc_per_node 4 run.py args/gsm_grpo.yaml
 - `beta`: 0.01 (KL penalty)
 - `reward_weight_final_answer`: 1.0
 - `reward_weight_format`: 0.1
+
+**Results**: [GRPO: GPT-2 Baseline](https://wandb.ai/gbatra3-uw-madison/coconut/reports/GRPO-GPT2-Baseline--VmlldzoxNTMyNDA5Mg?accessToken=7h6ug1m9t9muq355wg6p0fyqf34owciprdtu7c7jyjyzyewtyrzy2rbvtokdol2v) - WandB Report
 
 ---
 
@@ -224,20 +230,31 @@ coconut/
 ├── coconut.py              # Core Coconut model implementation
 ├── soft_thinking.py        # Soft Thinking inference wrapper
 ├── run.py                  # Main training/evaluation script
+├── run_grpo.py            # GRPO-specific training script
 ├── grpo.py                # GRPO reward functions and trainer
 ├── dataset.py             # Dataset loading and processing
 ├── utils.py               # Utility functions
+├── qwen_model.py          # Qwen model initialization with LoRA
+├── qwen_data.py           # Qwen data loading and preprocessing
+├── qwen_trainer.py        # Qwen training loop
+├── qwen_evaluator.py      # Qwen evaluation utilities
+├── qwen_utils.py          # Qwen checkpointing and logging
+├── train_qwen_coconut.py  # Qwen training script
+├── inference_qwen_coconut.py  # Qwen inference script
 ├── args/                  # Configuration files
 │   ├── gsm_cot.yaml       # CoT baseline config
-│   ├── gsm_coconut.yaml   # Coconut training config
+│   ├── gsm_coconut.yaml   # Coconut training config (GPT-2)
 │   ├── qwen_coconut.yaml  # Qwen 0.5B config
-│   ├── qwen_3b_coconut.yaml  # Qwen 3B config
+│   ├── qwen_3b_*.yaml     # Qwen 3B configs (CoT, Coconut)
 │   ├── gsm_grpo.yaml      # GRPO training config
 │   └── gsm_coconut_soft_thinking_eval.yaml  # Soft Thinking eval
 ├── preprocessing/         # Data preprocessing scripts
 │   ├── gsm_icot.bash      # GSM8K download script
-│   └── gsm_icot.py        # GSM8K processing
-└── data/                  # Dataset directory
+│   ├── gsm_icot.py        # GSM8K processing
+│   └── prontoqa.py        # ProntoQA processing
+├── data/                  # Dataset directory
+├── requirements.txt       # Core dependencies
+└── requirements_qwen.txt  # Qwen-specific dependencies
 ```
 
 ---
